@@ -117,10 +117,10 @@ function PhoneRoom({
 
   if (!snap || snap.status === 'loading') return <Loading />;
 
-  if (snap.status === 'missing') {
+  if (snap.status === 'missing' || room?.settings.closed) {
     return (
       <div className="phone-page center-stack">
-        <h1 className="display phone-title">Room {code} not found</h1>
+        <h1 className="display phone-title">{room?.settings.closed ? `Room ${code} has ended` : `Room ${code} not found`}</h1>
         <p className="dim">Check the code on the TV.</p>
         <button className="btn btn-primary btn-lg" onClick={onLeave}>Enter a different code</button>
       </div>
@@ -163,7 +163,7 @@ function PhoneRoom({
     );
   }
 
-  return <PhoneShell room={room} players={players} me={me} live={snap.live} onPlayerUpdated={(p) => store?.applyPlayer(p)} />;
+  return <PhoneShell room={room} players={players} me={me} live={snap.live} onPlayerUpdated={(p) => store?.applyPlayer(p)} onLeave={onLeave} />;
 }
 
 function CodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) {

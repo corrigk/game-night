@@ -145,7 +145,7 @@ export function HostDrawer({
           <h3>Room {room.code}</h3>
           <div className="row gap wrap">
             <a className="btn btn-sm" href="/admin" target="_blank" rel="noreferrer">Open admin</a>
-            <button className="btn btn-sm btn-ghost" onClick={() => setPending({ kind: 'newRoom' })}>New room…</button>
+            <button className="btn btn-sm btn-danger" onClick={() => setPending({ kind: 'newRoom' })}>Hard reset</button>
           </div>
           <p className="dim small">
             Shortcuts: <kbd>H</kbd> drawer · <kbd>Space</kbd> next · <kbd>+</kbd> add 15s
@@ -194,9 +194,9 @@ export function HostDrawer({
       )}
       {pending?.kind === 'newRoom' && (
         <Confirm
-          title="Start a brand-new room?"
-          body="Everyone will need to join again with the new code. Tonight's scores stay with the old room."
-          confirmLabel="New room"
+          title="Hard reset?"
+          body="Throws away this room and starts a fresh lobby with a new code and QR. Everyone has to join again and scores start from zero."
+          confirmLabel="Hard reset"
           danger
           onCancel={() => setPending(null)}
           onConfirm={() => {

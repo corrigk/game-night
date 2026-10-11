@@ -147,7 +147,11 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
         online={online}
         engine={engine}
         engineSnap={engineSnap}
-        onNewRoom={onNewRoom}
+        onNewRoom={async () => {
+          // Tell phones in the old room it's over so they land back on code entry.
+          await engine.updateSettings({ closed: true });
+          await onNewRoom();
+        }}
       />
       {!drawer && <div className="tv-hint">H · host controls</div>}
     </div>

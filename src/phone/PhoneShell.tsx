@@ -44,12 +44,14 @@ export function PhoneShell({
   me,
   live,
   onPlayerUpdated,
+  onLeave,
 }: {
   room: Room;
   players: Player[];
   me: Player;
   live: boolean;
   onPlayerUpdated: (p: Player) => void;
+  onLeave: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const { mySubs, myVotes, refresh } = useMine(room, me);
@@ -150,7 +152,7 @@ export function PhoneShell({
         )}
       </main>
 
-      {editing && <EditLook me={me} players={players} onClose={() => setEditing(false)} onSaved={onPlayerUpdated} />}
+      {editing && <EditLook me={me} players={players} onClose={() => setEditing(false)} onSaved={onPlayerUpdated} onLeave={onLeave} />}
     </div>
   );
 }
@@ -170,7 +172,7 @@ function PhoneResults({ room, me, rank }: { room: Room; me: Player; rank: number
   );
 }
 
-function EditLook({ me, players, onClose, onSaved }: { me: Player; players: Player[]; onClose: () => void; onSaved: (p: Player) => void }) {
+function EditLook({ me, players, onClose, onSaved, onLeave }: { me: Player; players: Player[]; onClose: () => void; onSaved: (p: Player) => void; onLeave: () => void }) {
   const [look, setLook] = useState({ emoji: me.emoji, color: me.color });
   const [error, setError] = useState<string | null>(null);
   const taken = takenColorsFor(players, me.id);
@@ -190,6 +192,7 @@ function EditLook({ me, players, onClose, onSaved }: { me: Player; players: Play
         <button className="btn" onClick={onClose}>Cancel</button>
         <button className="btn btn-primary" onClick={() => void saveLook()}>Save</button>
       </div>
+      <button className="btn btn-ghost btn-sm" onClick={onLeave}>Leave room / enter a different code</button>
     </Modal>
   );
 }
