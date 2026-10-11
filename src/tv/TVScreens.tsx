@@ -215,7 +215,11 @@ function Play({ room, players, engine, engineSnap }: Props) {
         </div>
       </header>
       <main className="play-body">
-        <Game room={room} players={players} subs={engineSnap.subs} votes={engineSnap.votes} engine={engine} />
+        {room.state.step ? (
+          <Game room={room} players={players} subs={engineSnap.subs} votes={engineSnap.votes} engine={engine} />
+        ) : (
+          <div className="center-stack"><div className="spinner" /></div>
+        )}
       </main>
       {accepting && players.length > 0 && (
         <footer className="waiting-strip">

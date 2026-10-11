@@ -12,7 +12,7 @@ Built with Vite + React + TypeScript and Supabase (Realtime, Postgres, Storage, 
 ## Build status
 
 - [x] 1. Scaffold, schema, join flow, reconnect, hub, host drawer, themes (+ **Tap Race** warm-up to test the engine)
-- [ ] 2. Most Likely To
+- [x] 2. Most Likely To
 - [ ] 3. Weird Facts
 - [ ] 4. Caption This + admin image upload
 - [ ] 5. Story Chain

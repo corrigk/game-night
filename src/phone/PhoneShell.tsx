@@ -138,7 +138,11 @@ export function PhoneShell({
             <div className="phone-round dim small">
               {game.emoji} {game.title} · Round {room.round}/{room.rounds_total}
             </div>
-            <game.Phone room={room} me={me} players={players} api={api} />
+            {room.state.step ? (
+              <game.Phone room={room} me={me} players={players} api={api} />
+            ) : (
+              <div className="phone-center"><div className="spinner" /></div>
+            )}
           </>
         )}
 

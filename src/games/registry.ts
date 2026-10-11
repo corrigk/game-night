@@ -1,4 +1,5 @@
 import { comingSoon } from './comingSoon';
+import { mostLikely } from './mostLikely/mostLikely';
 import { tapRace } from './taprace/tapRace';
 import type { GameModule } from './types';
 
@@ -7,7 +8,7 @@ import type { GameModule } from './types';
  * (see games/types.ts) and list it here. No database changes needed.
  */
 export const GAME_LIST: GameModule[] = [
-  comingSoon({ id: 'most_likely', title: 'Most Likely To', emoji: '👉', tagline: 'Point fingers. Anonymously-ish.', scored: true, defaultRounds: 8, step: 2 }),
+  mostLikely,
   comingSoon({ id: 'weird_facts', title: 'Weird Facts', emoji: '🧐', tagline: 'Fake the fact. Find the truth.', scored: true, defaultRounds: 6, step: 3 }),
   comingSoon({ id: 'caption_this', title: 'Caption This', emoji: '🖼️', tagline: 'One photo. Many bad ideas.', scored: true, defaultRounds: 6, step: 4 }),
   comingSoon({ id: 'story_chain', title: 'Story Chain', emoji: '📜', tagline: 'Write blind. Read aloud. No points, just chaos.', scored: false, defaultRounds: 6, step: 5 }),

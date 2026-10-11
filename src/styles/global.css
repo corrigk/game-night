@@ -1425,3 +1425,86 @@ textarea.input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   Most Likely To
+   ========================================================================== */
+.mlt-stage {
+  gap: 1em;
+}
+.mlt-kicker {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  color: var(--accent);
+  font-size: 1.6em;
+}
+.mlt-text {
+  font-size: calc(4.2em * var(--display-scale));
+  max-width: 18em;
+  text-wrap: balance;
+}
+.mlt-winners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  justify-content: center;
+}
+.mlt-winner .chip {
+  font-size: 3em;
+  box-shadow: 0 0 0 4px var(--chip-ring), var(--glow);
+}
+.mlt-bars {
+  list-style: none;
+  padding: 0;
+  margin: 0.6em 0 0;
+  width: min(44em, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+.mlt-bars li {
+  display: grid;
+  grid-template-columns: 11em 1fr 2em;
+  align-items: center;
+  gap: 0.8em;
+}
+.mlt-bar {
+  height: 1.1em;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+.mlt-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease;
+}
+.mlt-count {
+  font-family: var(--font-display);
+  font-size: 1.3em;
+}
+.vote-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.vote-option {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem;
+  border: 3px solid transparent;
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+.vote-option.selected {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+.phone-shell .mlt-text {
+  font-size: calc(2rem * var(--display-scale));
+}
+.phone-shell .mlt-kicker {
+  font-size: 1.1rem;
+}
