@@ -1,0 +1,574 @@
+/* ==========================================================================
+   Weird Facts
+   ========================================================================== */
+.wf-stage {
+  gap: 1em;
+}
+.wf-kicker {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  color: var(--accent);
+  font-size: 1.5em;
+  margin: 0;
+}
+.wf-prompt {
+  font-size: calc(3.4em * var(--display-scale));
+  max-width: 20em;
+  text-wrap: balance;
+}
+.wf-prompt-small {
+  font-size: calc(1.9em * var(--display-scale));
+  max-width: 28em;
+  text-wrap: balance;
+  margin: 0;
+}
+.wf-prompt-phone {
+  font-size: 1.35rem;
+  line-height: 1.25;
+  text-transform: none;
+  font-family: var(--font-body);
+}
+.wf-blank {
+  display: inline-block;
+  min-width: 4em;
+  border-bottom: 0.12em solid var(--accent);
+  margin: 0 0.1em;
+}
+.wf-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16em, 1fr));
+  gap: 0.8em;
+  width: min(70em, 100%);
+}
+.wf-option {
+  padding: 0.9em 1.1em;
+  font-size: 1.5em;
+  font-weight: 800;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+.wf-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  padding: 0.8em 1.1em;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  opacity: 0.8;
+}
+.wf-reveal.wf-current {
+  opacity: 1;
+  outline: 4px solid var(--accent);
+  box-shadow: var(--glow);
+}
+.wf-reveal.wf-real {
+  border-color: var(--success);
+  background: color-mix(in srgb, var(--success) 22%, var(--surface));
+  grid-column: 1 / -1;
+}
+.wf-reveal-text {
+  font-size: 1.5em;
+  font-weight: 800;
+}
+.wf-reveal-meta,
+.wf-pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.95em;
+}
+.wf-truth {
+  display: inline-block;
+  padding: 0.05em 0.5em;
+  margin-right: 0.3em;
+  border-radius: 999px;
+  background: var(--success);
+  color: #04210f;
+  font-size: 0.6em;
+  vertical-align: middle;
+}
+.wf-blurb {
+  max-width: 34em;
+}
+.wf-pick {
+  display: block;
+  width: 100%;
+  padding: 0.9rem 1rem;
+  text-align: left;
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-bottom: 0.5rem;
+}
+.wf-pick.selected {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+.wf-pick:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ==========================================================================
+   Caption This
+   ========================================================================== */
+.cap-photo {
+  width: 100%;
+  max-width: 44em;
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-items: center;
+  background: #000;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+.cap-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cap-stage {
+  gap: 1em;
+}
+.cap-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 2em;
+  align-items: start;
+}
+.cap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+}
+.cap-card {
+  padding: 0.8em 1em;
+  font-size: 1.45em;
+  font-weight: 800;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+}
+.cap-winner {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+  box-shadow: var(--glow);
+  font-size: 1.9em;
+}
+.cap-winner-label {
+  font-size: 0.5em;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.cap-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.55em;
+  margin-top: 0.3em;
+}
+.cap-thumb {
+  width: 100%;
+  max-height: 11rem;
+  object-fit: contain;
+  background: #000;
+  border-radius: var(--radius);
+}
+.cap-hand-card {
+  padding: 0.8rem 1rem;
+  text-align: left;
+  font: inherit;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--surface);
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.cap-hand-card.selected {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+}
+
+/* ==========================================================================
+   Story Chain
+   ========================================================================== */
+.story-stage {
+  gap: 0.8em;
+}
+.story-reader {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  height: calc(100vh - 12em);
+}
+.story-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5em;
+}
+.story-genre {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  font-size: 1.8em;
+  color: var(--accent);
+}
+.story-reader-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-left: auto;
+}
+.story-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 1em;
+  scroll-behavior: smooth;
+}
+.story-line {
+  font-size: 2.1em;
+  line-height: 1.35;
+  margin: 0 0 0.5em;
+  padding-left: 0.6em;
+  border-left: 0.2em solid var(--border);
+}
+.story-by {
+  display: block;
+  font-size: 0.4em;
+  margin-top: 0.2em;
+}
+.story-genre-card {
+  display: inline-block;
+  align-self: center;
+  padding: 0.35em 1em;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+}
+.story-last {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0;
+}
+.story-phone p {
+  margin: 0 0 0.6em;
+  padding-left: 0.6em;
+  border-left: 4px solid var(--border);
+}
+
+/* ==========================================================================
+   Zillow Hunt
+   ========================================================================== */
+.zil-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4em;
+}
+.zil-kicker {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  color: var(--accent);
+  font-size: 1.3em;
+}
+.zil-headline {
+  font-size: calc(3.6em * var(--display-scale));
+  max-width: 16em;
+  text-wrap: balance;
+}
+.zil-info-small .zil-headline {
+  font-size: calc(2em * var(--display-scale));
+}
+.zil-where {
+  font-size: 1.5em;
+  font-weight: 800;
+}
+.zil-filters {
+  list-style: none;
+  padding: 0;
+  margin: 0.3em 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5em;
+}
+.zil-filters li {
+  padding: 0.25em 0.9em;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--primary-text);
+  font-weight: 800;
+}
+.zil-shots {
+  display: flex;
+  gap: 0.5em;
+  width: 100%;
+}
+.zil-shots img {
+  flex: 1;
+  min-width: 0;
+  max-height: 16em;
+  object-fit: cover;
+  border-radius: calc(var(--radius) * 0.6);
+  background: #000;
+}
+.zil-shots-big img {
+  max-height: 55vh;
+  object-fit: contain;
+}
+.phone-shell .zil-shots {
+  flex-direction: column;
+}
+.phone-shell .zil-shots img {
+  max-height: 14rem;
+  object-fit: contain;
+}
+.zil-gallery-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+}
+.zil-gallery-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+}
+.zil-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20em, 1fr));
+  gap: 1em;
+}
+.zil-entry,
+.zil-finalist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding: 0.7em;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+}
+.zil-entry-label {
+  font-family: var(--font-display);
+  font-size: 1.3em;
+}
+.zil-dq {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.zil-top3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2em;
+  justify-content: center;
+  width: 100%;
+}
+.zil-finalist {
+  align-items: center;
+  width: min(22em, 100%);
+}
+.zil-pitch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+}
+.zil-url {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 1em;
+  word-break: break-all;
+}
+.zil-challenges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  width: 100%;
+}
+.zil-challenge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.5em 1em;
+  background: color-mix(in srgb, var(--danger) 30%, var(--bg));
+  border: 2px solid var(--danger);
+  border-radius: var(--radius);
+  font-size: 0.9em;
+}
+.selected-card {
+  outline: 3px solid var(--accent);
+}
+
+/* ==========================================================================
+   Talent Show
+   ========================================================================== */
+.talent-stage {
+  gap: 0.8em;
+}
+.talent-text {
+  font-size: calc(3.2em * var(--display-scale));
+  max-width: 18em;
+  text-wrap: balance;
+}
+.talent-phone {
+  font-size: calc(1.8rem * var(--display-scale));
+  text-wrap: balance;
+}
+.stars {
+  display: inline-flex;
+  gap: 0.1em;
+}
+.star {
+  color: var(--text-dim);
+  opacity: 0.35;
+}
+.star.on {
+  color: #ffc107;
+  opacity: 1;
+}
+.star.half {
+  color: #ffc107;
+  opacity: 0.65;
+}
+.stars-big {
+  font-size: 5em;
+  line-height: 1;
+}
+.star-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+.star-btn {
+  font-size: 3.2rem;
+  line-height: 1;
+  padding: 0.1em 0.15em;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  opacity: 0.45;
+  cursor: pointer;
+}
+.star-btn.on {
+  color: #ffc107;
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Awards
+   ========================================================================== */
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 1em;
+  margin-top: 1em;
+}
+.podium-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  min-width: 12em;
+}
+.podium-score {
+  font-family: var(--font-display);
+  font-size: 1.6em;
+}
+.podium-block {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 3em;
+  background: var(--primary);
+  color: var(--primary-text);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.podium-1 .podium-block {
+  height: 9em;
+}
+.podium-2 .podium-block {
+  height: 6.5em;
+}
+.podium-3 .podium-block {
+  height: 4.5em;
+}
+.podium-rest {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1em;
+}
+.award-screen {
+  gap: 0.8em;
+}
+
+/* ==========================================================================
+   Admin photos
+   ========================================================================== */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.6rem;
+}
+.photo-tile {
+  margin: 0;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+}
+.photo-tile img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.photo-tile figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.2rem 0.4rem;
+  background: var(--surface-strong);
+}
+.pill {
+  padding: 0.05em 0.6em;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.pill-friends {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+.pill-generic {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+@media (max-width: 900px) {
+  .cap-split {
+    grid-template-columns: 1fr;
+  }
+  .podium-col {
+    min-width: 6em;
+  }
+}

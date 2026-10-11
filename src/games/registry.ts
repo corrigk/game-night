@@ -1,6 +1,10 @@
-import { comingSoon } from './comingSoon';
+import { captionThis } from './caption/captionThis';
 import { mostLikely } from './mostLikely/mostLikely';
+import { storyChain } from './story/storyChain';
+import { talentShow } from './talent/talentShow';
 import { tapRace } from './taprace/tapRace';
+import { weirdFacts } from './weirdFacts/weirdFacts';
+import { zillowHunt } from './zillow/zillowHunt';
 import type { GameModule } from './types';
 
 /**
@@ -9,10 +13,11 @@ import type { GameModule } from './types';
  */
 export const GAME_LIST: GameModule[] = [
   mostLikely,
-  comingSoon({ id: 'weird_facts', title: 'Weird Facts', emoji: '🧐', tagline: 'Fake the fact. Find the truth.', scored: true, defaultRounds: 6, step: 3 }),
-  comingSoon({ id: 'caption_this', title: 'Caption This', emoji: '🖼️', tagline: 'One photo. Many bad ideas.', scored: true, defaultRounds: 6, step: 4 }),
-  comingSoon({ id: 'story_chain', title: 'Story Chain', emoji: '📜', tagline: 'Write blind. Read aloud. No points, just chaos.', scored: false, defaultRounds: 6, step: 5 }),
-  comingSoon({ id: 'zillow_hunt', title: 'Zillow Hunt', emoji: '🏠', tagline: 'Find the dream home. Sell it to the room.', scored: true, defaultRounds: 3, step: 6 }),
+  weirdFacts,
+  captionThis,
+  storyChain,
+  zillowHunt,
+  talentShow,
   tapRace,
 ];
 

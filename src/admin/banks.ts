@@ -52,6 +52,12 @@ export const BANKS: Bank[] = [
     ],
   },
   {
+    table: 'talents',
+    label: 'Talents',
+    help: 'Absurd talents handed out at random in Talent Show. Phrase them as a command: "Juggle three socks".',
+    fields: [{ key: 'text', label: 'Talent', required: true, placeholder: 'Perform an interpretive dance of a tax audit' }],
+  },
+  {
     table: 'zillow_prompts',
     label: 'Zillow prompts',
     help: 'wildcard: just a location. filter: location + a list of filters. weird: the challenge goes in Filters (e.g. "Most haunted-looking house").',

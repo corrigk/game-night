@@ -39,6 +39,13 @@ export interface GameModule {
   ready?(ctx: GameCtx): boolean;
   /** Host pressed Skip. Defaults to: wipe this round's input and restart it. */
   skip?(ctx: GameCtx): Promise<void>;
+  /**
+   * Runs (serialized) whenever this round's submissions change. Use it to validate
+   * input, e.g. delete a bad submission and publish a rejection. Must be idempotent.
+   */
+  process?(ctx: GameCtx): Promise<void>;
+  /** Host-only buttons rendered by the TV component (engine.gameAction). */
+  action?(ctx: GameCtx, name: string, payload: Record<string, unknown>): Promise<void>;
 
   TV: ComponentType<TVGameProps>;
   Phone: ComponentType<PhoneGameProps>;
@@ -75,6 +82,16 @@ export interface StepOptions {
   submit?: string[];
   /** Vote kinds phones may send during this step. */
   vote?: string[];
+  /** Which input drives the "who's done" strip. Defaults to submit if any, else vote. */
+  track?: 'submit' | 'vote';
+}
+
+export interface NewSub {
+  kind: string;
+  player_id: string | null;
+  payload: Record<string, unknown>;
+  /** Defaults to the current round. */
+  round?: number;
 }
 
 /** What a module's engine hooks get. Getters always return the latest data. */
@@ -85,6 +102,12 @@ export interface GameCtx {
   /** This round's submissions / votes, optionally filtered by kind. */
   roundSubs(kind?: string): Submission[];
   roundVotes(kind?: string): Vote[];
+  /** Everything from this run, any round. */
+  allSubs(kind?: string): Submission[];
+  allVotes(): Vote[];
+  /** Host-side inserts (private per-player rows like hands, system rows like the real answer). */
+  addSubs(rows: NewSub[]): Promise<Submission[]>;
+  removeSubs(ids: string[]): Promise<void>;
   /** Replace the public step state (and timer / accepted input). */
   setStep(step: string, data?: Record<string, unknown>, opts?: StepOptions): Promise<void>;
   /** Merge into the public step state without touching timer/accept. */

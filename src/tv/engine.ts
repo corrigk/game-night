@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { GAMES } from '../games/registry';
-import type { GameCtx, GameModule, StepOptions } from '../games/types';
+import type { GameCtx, GameModule, NewSub, StepOptions } from '../games/types';
 import { serverNow } from '../lib/clock';
 import type { RoomStore } from '../lib/roomStore';
 import { errorCode, supabase } from '../lib/supabase';
 import type { GameRun, Player, Room, RoomSettings, Submission, Vote } from '../lib/types';
+import { computeAwards } from './awards';
 
 export interface RunSummary {
   id: string;
@@ -41,6 +42,7 @@ export class HostEngine {
   private pending = 0;
   private lastPoll = 0;
   private autoFiredFor: string | null = null;
+  private lastProcessSig = '';
 
   constructor(readonly store: RoomStore) {}
 
@@ -146,6 +148,12 @@ export class HostEngine {
         const next = upsert(this.snap.votes, p.new as Vote);
         if (next) this.set({ votes: next });
       })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'submissions' }, (p) => {
+        this.set({ subs: remove(this.snap.subs, (p.old as Submission).id) });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'votes' }, (p) => {
+        this.set({ votes: remove(this.snap.votes, (p.old as Vote).id) });
+      })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void this.loadRun(this.loadedRunId);
       });
@@ -208,6 +216,10 @@ export class HostEngine {
       },
       roundSubs: (kind) => inRound(self.snap.subs, kind),
       roundVotes: (kind) => inRound(self.snap.votes, kind),
+      allSubs: (kind) => self.snap.subs.filter((s) => !kind || s.kind === kind),
+      allVotes: () => self.snap.votes,
+      addSubs: (rows) => self.addSubs(rows),
+      removeSubs: (ids) => self.removeSubs(ids),
       setStep: (step, data, opts) => self.setStep(step, data ?? {}, opts ?? {}),
       patchState: async (data) => {
         await self.patchRoom({ state: { ...self.room.state, ...data } });
@@ -220,8 +232,38 @@ export class HostEngine {
     };
   }
 
+  private async addSubs(rows: NewSub[]): Promise<Submission[]> {
+    const run = this.snap.run;
+    if (!run || !rows.length) return [];
+    const payload = rows.map((r) => ({
+      room_id: this.room.id,
+      run_id: run.id,
+      round: r.round ?? this.room.round,
+      kind: r.kind,
+      player_id: r.player_id,
+      payload: r.payload,
+    }));
+    const { data, error } = await supabase.from('submissions').insert(payload).select();
+    if (error) throw error;
+    const added = (data ?? []) as Submission[];
+    const ids = new Set(added.map((s) => s.id));
+    this.set({ subs: [...this.snap.subs.filter((s) => !ids.has(s.id)), ...added] });
+    return added;
+  }
+
+  private async removeSubs(ids: string[]) {
+    if (!ids.length) return;
+    const { error } = await supabase.from('submissions').delete().in('id', ids);
+    if (error) throw error;
+    const gone = new Set(ids);
+    this.set({ subs: this.snap.subs.filter((s) => !gone.has(s.id)) });
+  }
+
   private async setStep(step: string, data: Record<string, unknown>, opts: StepOptions) {
-    const accept = opts.submit || opts.vote ? { submit: opts.submit ?? [], vote: opts.vote ?? [] } : undefined;
+    const accept =
+      opts.submit || opts.vote
+        ? { submit: opts.submit ?? [], vote: opts.vote ?? [], track: opts.track ?? (opts.submit?.length ? 'submit' : 'vote') }
+        : undefined;
     await this.patchRoom({
       state: { ...data, step, stepAt: serverNow(), done: [], ...(accept ? { accept } : {}) },
       timer_ends_at: opts.seconds ? new Date(serverNow() + opts.seconds * 1000).toISOString() : null,
@@ -320,9 +362,16 @@ export class HostEngine {
           if (this.module) await this.module.next(this.ctx());
           break;
         case 'results':
-        case 'awards':
           await this.goHub();
           break;
+        case 'awards': {
+          const st = this.room.state;
+          const total = ((st.awards as unknown[] | undefined) ?? []).length;
+          const stage = Number(st.stage ?? 0);
+          if (stage < total) await this.patchRoom({ state: { ...st, stage: stage + 1 } });
+          else await this.goHub();
+          break;
+        }
         case 'hub':
           break;
       }
@@ -388,6 +437,27 @@ export class HostEngine {
 
   backToHub = () => this.act(() => this.goHub(), 'advance');
 
+  /** Run a host-only action defined by the current game (e.g. rule on a challenge). */
+  gameAction = (name: string, payload: Record<string, unknown> = {}) =>
+    this.act(async () => {
+      const mod = this.module;
+      if (mod?.action && this.snap.run) await mod.action(this.ctx(), name, payload);
+    });
+
+  showAwards = () =>
+    this.act(async () => {
+      const run = this.snap.run;
+      if (run && run.status !== 'done' && run.status !== 'exited') {
+        await this.patchRun({ status: 'exited', ended_at: new Date().toISOString() });
+      }
+      const awards = await computeAwards(this.room.id, this.players);
+      await this.patchRoom({
+        phase: 'awards', current_game: null, current_run_id: null, round: 0, rounds_total: 0,
+        state: { awards, stage: 0 }, ...CLEAR_TIMER,
+      });
+      await this.loadRuns();
+    }, 'advance');
+
   kick = (playerId: string) =>
     this.act(async () => {
       const { error } = await supabase.from('players').delete().eq('id', playerId);
@@ -432,15 +502,33 @@ export class HostEngine {
 
     if (this.pending > 0) return;
 
+    // 1b. Let the game validate fresh input (reject bad answers, etc).
+    if (mod.process) {
+      const sig =
+        `${room.round}:${room.state.step ?? ''}:${String(room.state.stepAt ?? '')}:` +
+        this.snap.subs.filter((s) => s.round === room.round).map((s) => s.id + s.updated_at).join('|');
+      if (sig !== this.lastProcessSig) {
+        this.lastProcessSig = sig;
+        void this.act(async () => {
+          await mod.process!(this.ctx());
+        });
+        return;
+      }
+    }
+
     // 2. Publish who has answered (drives "waiting on…" on every screen).
     const acc = room.state.accept;
     if (acc) {
       const ids = new Set<string>();
-      for (const s of this.snap.subs) {
-        if (s.round === room.round && s.player_id && acc.submit?.includes(s.kind)) ids.add(s.player_id);
-      }
-      for (const v of this.snap.votes) {
-        if (v.round === room.round && acc.vote?.includes(v.kind)) ids.add(v.voter_id);
+      const track = acc.track ?? (acc.submit?.length ? 'submit' : 'vote');
+      if (track === 'submit') {
+        for (const s of this.snap.subs) {
+          if (s.round === room.round && s.player_id && acc.submit?.includes(s.kind)) ids.add(s.player_id);
+        }
+      } else {
+        for (const v of this.snap.votes) {
+          if (v.round === room.round && acc.vote?.includes(v.kind)) ids.add(v.voter_id);
+        }
       }
       const done = [...ids].sort();
       if (done.join() !== [...(room.state.done ?? [])].sort().join()) {

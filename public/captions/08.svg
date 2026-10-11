@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffecd2"/><stop offset="1" stop-color="#fcb69f"/></linearGradient></defs>
+<rect width="1200" height="800" fill="url(#g)"/>
+<ellipse cx="600" cy="690" rx="330" ry="46" fill="rgba(0,0,0,0.22)"/>
+<g font-family="'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji',sans-serif">
+<text x="140" y="251" font-size="145" transform="rotate(-3 140 251)">🕶️</text><text x="627" y="578" font-size="150" transform="rotate(0 627 578)">🍕</text><text x="1081" y="160" font-size="132" transform="rotate(-9 1081 160)">🧊</text>
+<text x="600" y="640" font-size="470" text-anchor="middle">🐧</text>
+</g>
+</svg>

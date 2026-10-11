@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Countdown } from '../components/Countdown';
 import { Leaderboard } from '../components/Leaderboard';
@@ -6,7 +6,9 @@ import { Modal } from '../components/Modal';
 import { Avatar, PlayerChip } from '../components/PlayerChip';
 import { GAME_LIST, GAMES } from '../games/registry';
 import type { GameModule } from '../games/types';
+import { play } from '../lib/sound';
 import type { Player, Room } from '../lib/types';
+import type { Award } from './awards';
 import type { EngineSnapshot, HostEngine } from './engine';
 
 interface Props {
@@ -21,8 +23,28 @@ export function joinUrl(code: string) {
   return `${window.location.origin}/play?code=${code}`;
 }
 
+/** Occasional sound effects: a pop when someone answers, a sting on reveals, fanfare for winners. */
+function useSfx(room: Room) {
+  const step = String(room.state.step ?? '');
+  const done = (room.state.done ?? []).length;
+  const prevDone = useRef(0);
+  const stage = Number(room.state.stage ?? 0);
+
+  useEffect(() => {
+    if (room.phase === 'play' && done > prevDone.current) play('pop');
+    prevDone.current = done;
+  }, [room.phase, done]);
+
+  useEffect(() => {
+    if (room.phase === 'results') play('fanfare');
+    else if (room.phase === 'awards') play('fanfare');
+    else if (room.phase === 'play' && ['reveal', 'top3', 'authors'].includes(step)) play('sting');
+  }, [room.phase, step, stage, room.round]);
+}
+
 export function TVScreens(props: Props) {
   const { room } = props;
+  useSfx(room);
   switch (room.phase) {
     case 'lobby':
       return <Lobby {...props} />;
@@ -35,12 +57,7 @@ export function TVScreens(props: Props) {
     case 'results':
       return <Results {...props} />;
     case 'awards':
-      return (
-        <div className="screen center-stack">
-          <h1 className="display huge">🏆 Awards</h1>
-          <p className="lead">Coming in build step 7.</p>
-        </div>
-      );
+      return <Awards {...props} />;
   }
 }
 
@@ -121,6 +138,9 @@ function Hub({ room, players, engine, engineSnap }: Props) {
               </button>
             );
           })}
+        </div>
+        <div className="row gap center">
+          <button className="btn btn-lg" onClick={() => void engine.showAwards()}>🏆 Finish the night: Final Awards</button>
         </div>
         <p className="tv-footer dim">Host: click a game to start it</p>
       </div>
@@ -270,6 +290,64 @@ function Results({ room, players }: Props) {
       <aside className="hub-side card">
         <Leaderboard players={players} title="Tonight" />
       </aside>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- awards
+function Awards({ room, players }: Props) {
+  const awards = (room.state.awards as Award[] | undefined) ?? [];
+  const stage = Number(room.state.stage ?? 0);
+  const map = new Map(players.map((p) => [p.id, p]));
+  const ranked = [...players].sort((a, b) => b.score - a.score);
+
+  if (stage === 0) {
+    const [first, second, third] = ranked;
+    const slots = [
+      { p: second, place: 2 },
+      { p: first, place: 1 },
+      { p: third, place: 3 },
+    ];
+    return (
+      <div className="screen center-stack">
+        <h1 className="display huge title-glow">🏆 Final Standings</h1>
+        <div className="podium">
+          {slots.map(({ p, place }) =>
+            p ? (
+              <div key={place} className={`podium-col podium-${place} pop-in`} style={{ animationDelay: `${(3 - place) * 400}ms` }}>
+                <PlayerChip player={p} size="xl" />
+                <div className="podium-score">{p.score.toLocaleString()}</div>
+                <div className="podium-block">{place}</div>
+              </div>
+            ) : (
+              <div key={place} className="podium-col" />
+            ),
+          )}
+        </div>
+        <div className="podium-rest">
+          {ranked.slice(3).map((p, i) => (
+            <span key={p.id} className="dim">{i + 4}. {p.name} ({p.score})</span>
+          ))}
+        </div>
+        <p className="tv-footer"><kbd>Space</kbd> for the awards</p>
+      </div>
+    );
+  }
+
+  const award = awards[stage - 1];
+  if (!award) return null;
+  return (
+    <div className="screen center-stack award-screen">
+      <div className="intro-emoji pop-in">{award.emoji}</div>
+      <h1 className="display huge title-glow">{award.title}</h1>
+      <div className="row gap center wrap pop-in">
+        {award.playerIds.map((id) => {
+          const p = map.get(id);
+          return p ? <PlayerChip key={id} player={p} size="xl" /> : null;
+        })}
+      </div>
+      <p className="lead">{award.detail}</p>
+      <p className="tv-footer"><kbd>Space</kbd> {stage < awards.length ? 'next award' : 'back to the hub'}</p>
     </div>
   );
 }

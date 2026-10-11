@@ -5,6 +5,7 @@ import { AdminPage } from './admin/AdminPage';
 import { PlayPage } from './phone/PlayPage';
 import { TVPage } from './tv/TVPage';
 import './styles/global.css';
+import './styles/games.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

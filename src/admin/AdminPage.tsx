@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { HostGate } from '../components/HostGate';
 import { errorCode, supabase } from '../lib/supabase';
 import { BANKS, cleanRow, type Bank, type BankField } from './banks';
+import { PhotosAdmin } from './PhotosAdmin';
 
 type Row = Record<string, unknown> & { id: string };
 
@@ -26,12 +27,15 @@ function Admin() {
               {b.label}
             </button>
           ))}
+          <button className={`btn btn-sm${tab === 'photos' ? ' btn-primary' : ''}`} onClick={() => setTab('photos')}>
+            Caption photos
+          </button>
           <button className={`btn btn-sm${tab === 'import' ? ' btn-primary' : ''}`} onClick={() => setTab('import')}>
             Import everything
           </button>
         </nav>
       </header>
-      {bank ? <BankEditor key={bank.table} bank={bank} /> : <ImportAll />}
+      {bank ? <BankEditor key={bank.table} bank={bank} /> : tab === 'photos' ? <PhotosAdmin /> : <ImportAll />}
     </div>
   );
 }

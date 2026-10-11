@@ -31,9 +31,10 @@ function useMine(room: Room, me: Player) {
     setVotes((v.data ?? []) as Vote[]);
   }, [runId, round, me.id]);
 
+  // Also refetch on every room update: the TV can delete or add rows for us (rejections, hands).
   useEffect(() => {
     void refresh();
-  }, [refresh, stepAt]);
+  }, [refresh, stepAt, room.updated_at]);
 
   return { mySubs, myVotes, refresh };
 }
@@ -148,15 +149,30 @@ export function PhoneShell({
 
         {room.phase === 'results' && <PhoneResults room={room} me={me} rank={rank} />}
 
-        {room.phase === 'awards' && (
-          <div className="phone-center center-stack">
-            <h1 className="display phone-title">🏆 Awards time</h1>
-            <p className="dim">Look at the TV!</p>
-          </div>
-        )}
+        {room.phase === 'awards' && <PhoneAwards room={room} me={me} rank={rank} />}
       </main>
 
       {editing && <EditLook me={me} players={players} onClose={() => setEditing(false)} onSaved={onPlayerUpdated} onLeave={onLeave} />}
+    </div>
+  );
+}
+
+function PhoneAwards({ room, me, rank }: { room: Room; me: Player; rank: number }) {
+  const awards = ((room.state.awards as { id: string; title: string; emoji: string; playerIds: string[] }[] | undefined) ?? []);
+  const stage = Number(room.state.stage ?? 0);
+  const won = awards.filter((a) => a.playerIds.includes(me.id));
+  return (
+    <div className="phone-center center-stack">
+      <h1 className="display phone-title">🏆 Awards time</h1>
+      <p className="lead">You finished #{rank} with {me.score.toLocaleString()} pts</p>
+      {stage >= awards.length && won.length > 0 && (
+        <div className="stack gap center">
+          {won.map((a) => (
+            <p key={a.id} className="points">{a.emoji} {a.title}</p>
+          ))}
+        </div>
+      )}
+      <p className="dim">Look at the TV!</p>
     </div>
   );
 }
