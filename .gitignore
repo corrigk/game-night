@@ -1,0 +1,19 @@
+node_modules
+dist
+.vercel
+
+# Real keys live here. Only .env.example is committed.
+.env
+.env.local
+.env.*.local
+
+# Private seed content (fact answer keys, friend prompts). Import via /admin.
+/seed/
+
+# Never commit friend photos
+/photos/
+*.heic
+
+.DS_Store
+Thumbs.db
+*.log

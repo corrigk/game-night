@@ -1,0 +1,271 @@
+import { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { Countdown } from '../components/Countdown';
+import { Leaderboard } from '../components/Leaderboard';
+import { Modal } from '../components/Modal';
+import { Avatar, PlayerChip } from '../components/PlayerChip';
+import { GAME_LIST, GAMES } from '../games/registry';
+import type { GameModule } from '../games/types';
+import type { Player, Room } from '../lib/types';
+import type { EngineSnapshot, HostEngine } from './engine';
+
+interface Props {
+  room: Room;
+  players: Player[];
+  engine: HostEngine;
+  engineSnap: EngineSnapshot;
+  online: Set<string>;
+}
+
+export function joinUrl(code: string) {
+  return `${window.location.origin}/play?code=${code}`;
+}
+
+export function TVScreens(props: Props) {
+  const { room } = props;
+  switch (room.phase) {
+    case 'lobby':
+      return <Lobby {...props} />;
+    case 'hub':
+      return <Hub {...props} />;
+    case 'intro':
+      return <Intro {...props} />;
+    case 'play':
+      return <Play {...props} />;
+    case 'results':
+      return <Results {...props} />;
+    case 'awards':
+      return (
+        <div className="screen center-stack">
+          <h1 className="display huge">🏆 Awards</h1>
+          <p className="lead">Coming in build step 7.</p>
+        </div>
+      );
+  }
+}
+
+// ----------------------------------------------------------------- lobby
+function Lobby({ room, players, online }: Props) {
+  const url = joinUrl(room.code);
+  const isLocalhost = ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+  return (
+    <div className="screen lobby">
+      <div className="lobby-join card">
+        <p className="lobby-label">Join on your phone</p>
+        <div className="qr">
+          <QRCodeSVG value={url} size={512} marginSize={2} bgColor="#ffffff" fgColor="#000000" />
+        </div>
+        <p className="lobby-url">{url.replace(/^https?:\/\//, '').replace(/\?code=.*/, '')}</p>
+        <p className="lobby-label">Room code</p>
+        <div className="room-code">{room.code}</div>
+        {isLocalhost && (
+          <p className="warn">
+            Phones can't reach "localhost". Open this page using your computer's network address (shown by
+            <code> npm run dev</code>) or the deployed URL.
+          </p>
+        )}
+      </div>
+      <div className="lobby-players">
+        <h1 className="display title-glow">Party Pack</h1>
+        <p className="lead">{players.length === 0 ? 'Waiting for players…' : `${players.length} in the room`}</p>
+        <div className="lobby-grid">
+          {players.map((p) => (
+            <div key={p.id} className="lobby-player pop-in">
+              <PlayerChip player={p} size="lg" dim={!online.has(p.id)} />
+            </div>
+          ))}
+        </div>
+        <p className="tv-footer">Everyone in? Host presses <kbd>Space</kbd></p>
+      </div>
+    </div>
+  );
+}
+
+/** Small corner badge so latecomers can always join. */
+function JoinBadge({ code }: { code: string }) {
+  return (
+    <div className="join-badge">
+      <QRCodeSVG value={joinUrl(code)} size={96} marginSize={1} bgColor="#ffffff" fgColor="#000000" />
+      <div>
+        <div className="dim small">Join</div>
+        <div className="join-badge-code">{code}</div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- hub
+function Hub({ room, players, engine, engineSnap }: Props) {
+  const [picked, setPicked] = useState<GameModule | null>(null);
+  const plays = (id: string) => engineSnap.runs.filter((r) => r.game_type === id && (r.status === 'done' || r.status === 'exited')).length;
+
+  return (
+    <div className="screen hub">
+      <div className="hub-main">
+        <h1 className="display title-glow">Pick a game</h1>
+        <div className="hub-grid">
+          {GAME_LIST.map((g) => {
+            const n = plays(g.id);
+            return (
+              <button
+                key={g.id}
+                className={`tile${g.status === 'soon' ? ' tile-soon' : ''}${n ? ' tile-played' : ''}`}
+                disabled={g.status === 'soon'}
+                onClick={() => setPicked(g)}
+              >
+                <span className="tile-emoji">{g.emoji}</span>
+                <span className="tile-title">{g.title}</span>
+                <span className="tile-tagline">{g.status === 'soon' ? g.soonNote : g.tagline}</span>
+                {n > 0 && <span className="tile-check" title={`Played ${n}×`}>✓{n > 1 ? ` ×${n}` : ''}</span>}
+                {!g.scored && <span className="tile-badge">No points</span>}
+              </button>
+            );
+          })}
+        </div>
+        <p className="tv-footer dim">Host: click a game to start it</p>
+      </div>
+      <aside className="hub-side card">
+        <Leaderboard players={players} title="Tonight" />
+      </aside>
+      <JoinBadge code={room.code} />
+      {picked && (
+        <StartGameModal
+          game={picked}
+          onClose={() => setPicked(null)}
+          onStart={(rounds) => {
+            setPicked(null);
+            void engine.startGame(picked.id, rounds);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function StartGameModal({ game, onClose, onStart }: { game: GameModule; onClose: () => void; onStart: (rounds: number) => void }) {
+  const [rounds, setRounds] = useState(game.defaultRounds);
+  return (
+    <Modal onClose={onClose}>
+      <h2>
+        {game.emoji} {game.title}
+      </h2>
+      <p className="dim">{game.tagline}</p>
+      <div className="row gap center rounds-picker">
+        <button className="btn btn-lg" onClick={() => setRounds((r) => Math.max(1, r - 1))}>−</button>
+        <div className="rounds-value">
+          <span className="big-num">{rounds}</span>
+          <span className="dim">round{rounds === 1 ? '' : 's'}</span>
+        </div>
+        <button className="btn btn-lg" onClick={() => setRounds((r) => Math.min(game.maxRounds, r + 1))}>+</button>
+      </div>
+      <div className="row gap end">
+        <button className="btn" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary btn-lg" autoFocus onClick={() => onStart(rounds)}>Start</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ----------------------------------------------------------------- intro
+function Intro({ room }: Props) {
+  const game = room.current_game ? GAMES[room.current_game] : undefined;
+  if (!game) return null;
+  return (
+    <div className="screen center-stack intro">
+      <div className="intro-emoji pop-in">{game.emoji}</div>
+      <h1 className="display huge title-glow">{game.title}</h1>
+      <p className="lead">{game.tagline}</p>
+      <ol className="rules">
+        {game.rules.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ol>
+      <p className="dim">
+        {room.rounds_total} round{room.rounds_total === 1 ? '' : 's'}
+        {!game.scored && ' · no points'}
+      </p>
+      <p className="tv-footer">
+        Host presses <kbd>Space</kbd> to begin
+      </p>
+      <JoinBadge code={room.code} />
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- play
+function Play({ room, players, engine, engineSnap }: Props) {
+  const game = room.current_game ? GAMES[room.current_game] : undefined;
+  if (!game) return null;
+  const Game = game.TV;
+  const accepting = Boolean(room.state.accept && (room.state.accept.submit?.length || room.state.accept.vote?.length));
+  const done = new Set(room.state.done ?? []);
+
+  return (
+    <div className="screen play">
+      <header className="play-header">
+        <div className="play-title">
+          <span>{game.emoji}</span> {game.title}
+        </div>
+        <div className="play-round">
+          Round {room.round}
+          <span className="dim"> / {room.rounds_total}</span>
+        </div>
+        <div className="play-timer">
+          {!room.state.hideTimer && <Countdown endsAt={room.timer_ends_at} duration={room.timer_duration} size="lg" sound />}
+        </div>
+      </header>
+      <main className="play-body">
+        <Game room={room} players={players} subs={engineSnap.subs} votes={engineSnap.votes} engine={engine} />
+      </main>
+      {accepting && players.length > 0 && (
+        <footer className="waiting-strip">
+          {players.map((p) => (
+            <span key={p.id} className={done.has(p.id) ? 'is-done' : 'is-waiting'}>
+              <Avatar player={p} size="md" dim={!done.has(p.id)} />
+            </span>
+          ))}
+        </footer>
+      )}
+      <div className="join-badge join-badge-mini">{room.code}</div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------- results
+function Results({ room, players }: Props) {
+  const game = room.current_game ? GAMES[room.current_game] : undefined;
+  const standings = (room.state.standings as { playerId: string; points: number }[] | undefined) ?? [];
+  const map = new Map(players.map((p) => [p.id, p]));
+  return (
+    <div className="screen results">
+      <div className="results-main">
+        <h1 className="display title-glow">
+          {game?.emoji} {game?.title ?? 'Game'} results
+        </h1>
+        {game && !game.scored ? (
+          <p className="lead">No points in this one. Everybody wins (nobody wins).</p>
+        ) : (
+          <ol className="standings">
+            {standings.map((s, i) => {
+              const p = map.get(s.playerId);
+              if (!p) return null;
+              return (
+                <li key={s.playerId} className="pop-in" style={{ animationDelay: `${i * 90}ms` }}>
+                  <span className="tap-place">{i + 1}</span>
+                  <PlayerChip player={p} size="lg" />
+                  <span className="points">+{s.points}</span>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        <p className="tv-footer">
+          <kbd>Space</kbd> back to the hub
+        </p>
+      </div>
+      <aside className="hub-side card">
+        <Leaderboard players={players} title="Tonight" />
+      </aside>
+    </div>
+  );
+}

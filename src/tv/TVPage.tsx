@@ -1,0 +1,155 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { DEFAULT_ROSTER, DEFAULT_THEME } from '../config';
+import { HostGate } from '../components/HostGate';
+import { syncClock } from '../lib/clock';
+import { usePresence } from '../lib/presence';
+import { useRoomStore } from '../lib/roomStore';
+import { unlockAudio } from '../lib/sound';
+import { load, save } from '../lib/storage';
+import { errorCode, supabase } from '../lib/supabase';
+import type { Room } from '../lib/types';
+import { useTheme } from '../themes/themes';
+import { HostEngine, useEngine } from './engine';
+import { HostDrawer } from './HostDrawer';
+import { TVScreens } from './TVScreens';
+
+const ROOM_KEY = 'partypack:tv-room';
+
+export function TVPage() {
+  return (
+    <HostGate label="Party Pack · TV">
+      <TVRoom />
+    </HostGate>
+  );
+}
+
+/** Resolves which room this TV runs (remembered across refreshes), creating one if needed. */
+function TVRoom() {
+  const [code, setCode] = useState<string | null>(() => load<string | null>(ROOM_KEY, null));
+  const [error, setError] = useState<string | null>(null);
+  const creating = useRef(false);
+
+  const createRoom = useCallback(async () => {
+    if (creating.current) return;
+    creating.current = true;
+    setError(null);
+    try {
+      const { data, error } = await supabase.rpc('create_room', {
+        p_settings: { theme: DEFAULT_THEME, roster: DEFAULT_ROSTER },
+      });
+      if (error) return setError(errorCode(error));
+      const room = data as Room;
+      save(ROOM_KEY, room.code);
+      setCode(room.code);
+    } finally {
+      creating.current = false;
+    }
+  }, []);
+
+  useEffect(() => {
+    void syncClock();
+    if (!code) void createRoom();
+  }, [code, createRoom]);
+
+  if (error) {
+    return (
+      <div className="screen center-stack narrow">
+        <h1 className="display">Couldn't create a room</h1>
+        <p className="error">{error}</p>
+        <button className="btn btn-primary" onClick={() => void createRoom()}>Try again</button>
+      </div>
+    );
+  }
+  if (!code) return <div className="screen center-stack"><div className="spinner" /></div>;
+  return <TVRunner key={code} code={code} onNewRoom={createRoom} onMissing={createRoom} />;
+}
+
+function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () => Promise<void>; onMissing: () => Promise<void> }) {
+  const { store, snap } = useRoomStore(code);
+  const [engine, setEngine] = useState<HostEngine | null>(null);
+  const [drawer, setDrawer] = useState(false);
+  const engineSnap = useEngine(engine);
+  const online = usePresence(code, null);
+  const roomReady = snap?.status === 'ready';
+
+  useTheme(snap?.room?.settings.theme);
+
+  // Start the engine once the room has loaded.
+  useEffect(() => {
+    if (!store || !roomReady) return;
+    const e = new HostEngine(store);
+    e.start();
+    setEngine(e);
+    return () => {
+      e.stop();
+      setEngine(null);
+    };
+  }, [store, roomReady]);
+
+  useEffect(() => {
+    if (snap?.status === 'missing') void onMissing();
+  }, [snap?.status, onMissing]);
+
+  // Mirror presence into players.connected, debounced so a reload doesn't flicker everyone offline.
+  const onlineKey = [...online].sort().join();
+  useEffect(() => {
+    if (!engine) return;
+    const t = window.setTimeout(() => void engine.syncConnected(online), 3000);
+    return () => window.clearTimeout(t);
+  }, [engine, onlineKey, snap?.players.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keyboard shortcuts: H drawer, Space next, + add 15s.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      unlockAudio();
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+      if (document.querySelector('.modal')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'h' || e.key === 'H') {
+        setDrawer((d) => !d);
+      } else if (e.key === ' ') {
+        // Don't let Space also "click" whichever drawer button has focus.
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        if (!e.repeat) void engine?.next();
+      } else if (e.key === '+' || e.key === '=') {
+        void engine?.addTime(15);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [engine]);
+
+  if (!snap || snap.status === 'loading' || !snap.room || !engine || !engineSnap) {
+    return (
+      <div className="screen center-stack">
+        <div className="spinner" />
+        {snap?.error && <p className="error">{snap.error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="tv" onClick={unlockAudio}>
+      <TVScreens room={snap.room} players={snap.players} engine={engine} engineSnap={engineSnap} online={online} />
+      {!snap.live && <div className="tv-offline">Reconnecting…</div>}
+      {engineSnap.error && !drawer && (
+        <button className="tv-error" onClick={engine.clearError}>
+          ⚠ {engineSnap.error} <span className="dim">(click to dismiss)</span>
+        </button>
+      )}
+      <HostDrawer
+        open={drawer}
+        onClose={() => setDrawer(false)}
+        room={snap.room}
+        players={snap.players}
+        online={online}
+        engine={engine}
+        engineSnap={engineSnap}
+        onNewRoom={onNewRoom}
+      />
+      {!drawer && <div className="tv-hint">H · host controls</div>}
+    </div>
+  );
+}

@@ -1,0 +1,49 @@
+{
+  "_readme": "Small sample content showing the import format. Put your real content in /seed (gitignored) and import it from /admin -> Import everything. Don't use these sample facts on game night: their answers are public in the repo.",
+  "most_likely_prompts": [
+    { "text": "forget their own birthday" },
+    { "text": "survive a zombie apocalypse" },
+    { "text": "start a cult by accident" },
+    { "text": "cry at a commercial" },
+    { "text": "get lost in their own neighborhood" },
+    { "text": "become famous for something weird" },
+    { "text": "text the group chat at 3am" },
+    { "text": "adopt five cats in one weekend" }
+  ],
+  "facts": [
+    {
+      "prompt": "Sea otters hold ___ while they sleep so they don't drift apart.",
+      "answer": "hands",
+      "blurb": "Groups of floating otters are called rafts.",
+      "kind": "short"
+    },
+    {
+      "prompt": "A group of flamingos is called a ___.",
+      "answer": "flamboyance",
+      "blurb": "Accurate.",
+      "kind": "short"
+    }
+  ],
+  "caption_cards": [
+    { "text": "When the group chat goes quiet" },
+    { "text": "Me explaining my budget spreadsheet" },
+    { "text": "POV: you said 'one more episode'" },
+    { "text": "The face of someone who just replied-all" },
+    { "text": "This is fine." },
+    { "text": "Trust the process." },
+    { "text": "Not my proudest moment" },
+    { "text": "Monday, in physical form" }
+  ],
+  "story_seeds": [
+    { "genre": "Space opera", "opening_line": "The captain had never seen a cow in orbit before." },
+    { "genre": "Cozy mystery", "opening_line": "The pie was missing, and so was Grandma." },
+    { "genre": "Noir", "opening_line": "She walked into my office smelling like trouble and fabric softener." },
+    { "genre": "Fairy tale", "opening_line": "Once upon a time, a frog filed for divorce." }
+  ],
+  "zillow_prompts": [
+    { "type": "wildcard", "location": "Boise, ID", "prompt": "coolest listing", "filters": [] },
+    { "type": "filter", "location": "Ohio", "prompt": "best house", "filters": ["under $250k", "has a pool"] },
+    { "type": "weird", "location": "anywhere in the US", "prompt": "most haunted-looking house", "filters": [] },
+    { "type": "weird", "location": "Florida", "prompt": "most 90s time capsule", "filters": [] }
+  ]
+}
