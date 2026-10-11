@@ -225,7 +225,8 @@ export class HostEngine {
     await this.patchRoom({
       state: { ...data, step, stepAt: serverNow(), done: [], ...(accept ? { accept } : {}) },
       timer_ends_at: opts.seconds ? new Date(serverNow() + opts.seconds * 1000).toISOString() : null,
-      timer_duration: opts.seconds ?? null,
+      // timer_duration is an integer column
+      timer_duration: opts.seconds ? Math.ceil(opts.seconds) : null,
     });
   }
 
