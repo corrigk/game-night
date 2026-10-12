@@ -6,7 +6,7 @@ interface Row {
   id: string;
   url: string | null;
   storage_path: string | null;
-  pool: 'generic' | 'friends';
+  pool: 'generic' | 'friends' | 'headline';
   credit: string | null;
   vetoed?: boolean | null;
   times_used?: number | null;
@@ -16,7 +16,8 @@ interface Row {
 /** Upload caption photos to the private `caption-images` bucket (friends pool) or add generic ones. */
 export function PhotosAdmin() {
   const [rows, setRows] = useState<Row[]>([]);
-  const [pool, setPool] = useState<'generic' | 'friends'>('friends');
+  const [pool, setPool] = useState<'generic' | 'friends' | 'headline'>('friends');
+  const [filter, setFilter] = useState<'all' | 'generic' | 'friends' | 'headline'>('all');
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [urlText, setUrlText] = useState('');
@@ -94,9 +95,10 @@ export function PhotosAdmin() {
         <div className="row gap wrap">
           <label className="field">
             <span>Pool</span>
-            <select className="input" value={pool} onChange={(e) => setPool(e.target.value as 'generic' | 'friends')}>
+            <select className="input" value={pool} onChange={(e) => setPool(e.target.value as 'generic' | 'friends' | 'headline')}>
               <option value="friends">friends</option>
               <option value="generic">generic</option>
+              <option value="headline">headline (Fake Headlines)</option>
             </select>
           </label>
           <label className="field">
@@ -112,9 +114,20 @@ export function PhotosAdmin() {
         <button className="btn btn-sm" onClick={() => void addUrl()} disabled={!urlText.trim()}>Add URLs</button>
       </div>
       {msg && <p className="admin-msg" onClick={() => setMsg(null)}>{msg}</p>}
-      <strong>{rows.length} images</strong>
+      <div className="row gap wrap">
+        <strong>{rows.filter((r) => filter === 'all' || r.pool === filter).length} images</strong>
+        <label className="field">
+          <span>Show</span>
+          <select className="input" value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)}>
+            <option value="all">all pools</option>
+            <option value="generic">generic</option>
+            <option value="friends">friends</option>
+            <option value="headline">headline</option>
+          </select>
+        </label>
+      </div>
       <div className="photo-grid">
-        {rows.map((r) => (
+        {rows.filter((r) => filter === 'all' || r.pool === filter).map((r) => (
           <figure key={r.id} className="photo-tile">
             {r.preview ? <img src={r.preview} alt="" loading="lazy" /> : <div className="spinner" />}
             <figcaption>

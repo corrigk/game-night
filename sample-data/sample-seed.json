@@ -168,5 +168,65 @@
       ],
       "category": "food"
     }
+  ],
+  "acronym_themes": [
+    {
+      "text": "A terrible slogan for a pizza place"
+    },
+    {
+      "text": "What the dog is thinking right now"
+    }
+  ],
+  "plot_twist_setups": [
+    {
+      "setup": "Every morning at 7:15, the neighborhood dog walked himself to the bakery. Today, he came home with two bags instead of one. And a note.",
+      "genre": "Cozy Mystery"
+    }
+  ],
+  "madlibs_templates": [
+    {
+      "id": "sample-sandwich",
+      "title": "The Great Sandwich Heist",
+      "mode": "script",
+      "description": "A very small crime in a very large kitchen.",
+      "roles": [
+        {
+          "name": "Detective",
+          "color": "#0984e3"
+        },
+        {
+          "name": "Suspect",
+          "color": "#e17055"
+        }
+      ],
+      "blanks": [
+        {
+          "id": "b1",
+          "prompt": "A sandwich filling",
+          "kind": "free"
+        },
+        {
+          "id": "b2",
+          "prompt": "A friend's name",
+          "kind": "roster"
+        },
+        {
+          "id": "b3",
+          "prompt": "A silly noise",
+          "kind": "free"
+        }
+      ],
+      "lines": [
+        {
+          "role": "Detective",
+          "text": "The {{b1}} sandwich is missing, and I suspect {{b2}}!",
+          "direction": "(squints at an imaginary clue)"
+        },
+        {
+          "role": "Suspect",
+          "text": "{{b3}}! I would never."
+        }
+      ]
+    }
   ]
 }

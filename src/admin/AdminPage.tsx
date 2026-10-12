@@ -64,7 +64,9 @@ function BankEditor({ bank }: { bank: Bank }) {
 
   const add = async () => {
     const row = cleanRow(bank, draft);
-    if (!row) return setMsg('Fill in the required fields.');
+    if (!row) return setMsg('Fill in the required fields (JSON fields must be valid JSON).');
+    const problem = bank.validate?.(row);
+    if (problem) return setMsg(problem);
     const { error } = await supabase.from(bank.table).insert(row);
     if (error) return setMsg(error.message);
     setDraft({});
@@ -174,6 +176,8 @@ function BankEditor({ bank }: { bank: Bank }) {
                   <td key={f.key}>
                     {f.secret && !showSecrets ? (
                       <span className="dim">••••</span>
+                    ) : f.type === 'json' ? (
+                      <span className="dim small">{Array.isArray(r[f.key]) ? `${(r[f.key] as unknown[]).length} items` : 'JSON'}</span>
                     ) : (
                       <FieldInput
                         field={f}
@@ -226,7 +230,8 @@ function BankEditor({ bank }: { bank: Bank }) {
 }
 
 function fieldToString(v: unknown): string {
-  if (Array.isArray(v)) return v.join(', ');
+  if (Array.isArray(v) && v.every((x) => typeof x !== 'object')) return v.join(', ');
+  if (v && typeof v === 'object') return JSON.stringify(v);
   return v == null ? '' : String(v);
 }
 
@@ -287,8 +292,14 @@ function FieldInput({
 }
 
 async function importRows(bank: Bank, list: unknown[], replace: boolean): Promise<string> {
-  const rows = list.map((r) => cleanRow(bank, r)).filter((r): r is Record<string, unknown> => r !== null);
+  const rows = list
+    .map((r) => cleanRow(bank, bank.map && r && typeof r === 'object' ? bank.map(r as Record<string, unknown>) : r))
+    .filter((r): r is Record<string, unknown> => r !== null);
   const skipped = list.length - rows.length;
+  if (bank.validate) {
+    const problems = rows.map((r) => bank.validate!(r)).filter((p): p is string => p !== null);
+    if (problems.length) throw new Error(`Import stopped, nothing was saved. ${problems.slice(0, 3).join(' ')}${problems.length > 3 ? ` (+${problems.length - 3} more)` : ''}`);
+  }
   if (replace) {
     const { error } = await supabase.from(bank.table).delete().not('id', 'is', null);
     if (error) throw error;

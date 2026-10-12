@@ -60,7 +60,7 @@ export async function computeNight(
   const [events, votes, subsRes, runs] = await Promise.all([
     supabase.from('score_events').select('player_id, points, reason').eq('room_id', roomId),
     supabase.from('votes').select('run_id, round, kind, target_submission_id, target_player_id').eq('room_id', roomId),
-    supabase.from('submissions').select('id, run_id, round, kind, player_id, payload').eq('room_id', roomId).in('kind', ['caption', 'rating']),
+    supabase.from('submissions').select('id, run_id, round, kind, player_id, payload').eq('room_id', roomId).in('kind', ['caption', 'rating', 'acro', 'headline']),
     supabase.from('game_runs').select('id, game_type, status, state').eq('room_id', roomId),
   ]);
   const subs = (subsRes.data ?? []) as SubRow[];
@@ -128,6 +128,39 @@ export async function computeNight(
     for (const [pid, n] of Object.entries((r.state as { mvp?: Record<string, number> }).mvp ?? {})) if (ids.has(pid)) add(mvp, pid, Number(n));
   }
   push('hotseat', 'Hot Seat MVP', '🔥', topOf(mvp), (n) => `${n} word${n === 1 ? '' : 's'} described correctly`);
+
+  // Best single acronym / funniest single headline, and the biggest believable-vote collector.
+  const bestOf = (voteKind: string, subKind: string) => {
+    const tally = new Map<string, number>();
+    for (const v of votes.data ?? []) if (v.kind === voteKind && v.target_submission_id) add(tally, v.target_submission_id, 1);
+    const top = [...tally].sort((a, b) => b[1] - a[1])[0];
+    const sub = top && subs.find((s) => s.id === top[0] && s.kind === subKind);
+    return sub?.player_id && ids.has(sub.player_id) ? { sub, votes: top[1] } : null;
+  };
+  const acr = bestOf('acr', 'acro');
+  if (acr) {
+    const words = ((acr.sub.payload as { words?: string[] }).words ?? []).join(' ');
+    out.push({ id: 'acronym', title: 'Best Acronym', emoji: '🔠', playerIds: [acr.sub.player_id!], detail: `"${words}" (${acr.votes} vote${acr.votes === 1 ? '' : 's'})` });
+    moments.push({ emoji: '🔠', title: 'Best acronym', text: `"${words}"`, by: nameOf(acr.sub.player_id) });
+  }
+  push('twist', 'Plot Twist Master', '🌀', topOf(byReason((r) => r === REASON.twistVotes || r === REASON.twistWin, (p) => p)), (n) => `${n} twist points`);
+  const fun = bestOf('hl_fun', 'headline');
+  if (fun) {
+    const text = String((fun.sub.payload as { text?: string }).text ?? '');
+    out.push({ id: 'headline', title: 'Funniest Headline', emoji: '📰', playerIds: [fun.sub.player_id!], detail: `"${text}" (${fun.votes} vote${fun.votes === 1 ? '' : 's'})` });
+    moments.push({ emoji: '📰', title: 'Funniest headline', text: `"${text}"`, by: nameOf(fun.sub.player_id) });
+  }
+  push('believable', 'Most Believable Liar', '🤥', topOf(byReason((r) => r === REASON.hlBelieve || r === REASON.hlBelieveWin, (p) => p)), (n) => `${n} believability points`);
+
+  // Theatre Troupe: everyone who performed in Mad Libs Theatre (no ranking).
+  const troupe = new Set<string>();
+  for (const r of runs.data ?? []) {
+    if (r.game_type !== 'madlibs_theatre') continue;
+    for (const pid of ((r.state as { performed?: string[] }).performed ?? [])) if (ids.has(pid)) troupe.add(pid);
+  }
+  if (troupe.size) {
+    out.push({ id: 'troupe', title: 'Theatre Troupe', emoji: '🎭', playerIds: [...troupe], detail: 'Starring ' + [...troupe].map(nameOf).join(', ') });
+  }
 
   push('encore', 'Crowd Favorite', '👏', topOf(byReason((r) => r === REASON.talentEncore, (p) => p / 50)), (n) => `Earned ${n} encore${n === 1 ? '' : 's'}`);
 

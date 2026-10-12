@@ -7,6 +7,7 @@ import { RecapPage } from './recap/RecapPage';
 import { TVPage } from './tv/TVPage';
 import './styles/global.css';
 import './styles/games.css';
+import './styles/games2.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

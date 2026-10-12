@@ -11,7 +11,10 @@ export type BankTable =
   | 'talents'
   | 'emoji_titles'
   | 'dolphin_tasks'
-  | 'hot_seat_words';
+  | 'hot_seat_words'
+  | 'acronym_themes'
+  | 'plot_twist_setups'
+  | 'madlibs_templates';
 
 export interface BankRow {
   id: string;

@@ -1,4 +1,8 @@
+import { acronymAttack } from './acronym/acronymAttack';
 import { captionThis } from './caption/captionThis';
+import { fakeHeadlines } from './headlines/fakeHeadlines';
+import { madlibsTheatre } from './madlibs/madlibsTheatre';
+import { plotTwist } from './plottwist/plotTwist';
 import { dolphin } from './dolphin/dolphin';
 import { hotSeat } from './hotseat/hotSeat';
 import { emojiTranslation } from './emoji/emojiTranslation';
@@ -26,6 +30,10 @@ export const GAME_LIST: GameModule[] = [
   dolphin,
   hotSeat,
   movieVoting,
+  acronymAttack,
+  plotTwist,
+  fakeHeadlines,
+  madlibsTheatre,
   tapRace,
 ];
 

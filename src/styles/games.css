@@ -979,3 +979,5 @@
 .movie-out { opacity: 0.5; }
 .movie-adv .movie-title { color: var(--success); }
 .movie-by { display: inline-flex; gap: 0.2em; min-width: 3em; }
+
+.pill-headline { background: var(--danger); color: #fff; }

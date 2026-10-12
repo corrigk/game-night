@@ -133,6 +133,8 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
         setBigQr((v) => !v);
       } else if (e.key === 'Escape') {
         setBigQr(false);
+      } else if (e.key === 's' || e.key === 'S') {
+        void engine?.skip();
       } else if (e.key === 'Enter') {
         e.preventDefault();
         (document.activeElement as HTMLElement | null)?.blur?.();

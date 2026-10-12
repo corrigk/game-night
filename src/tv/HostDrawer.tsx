@@ -142,6 +142,17 @@ export function HostDrawer({
               onChange={(e) => void engine.updateSettings({ captionFriendMix: Number(e.target.value) / 100 })}
             />
           </label>
+          <label className="field">
+            <span>Fake Headlines: friends photos {Math.round(Number(room.settings.headlineFriendMix ?? 0) * 100)}%</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={10}
+              value={Math.round(Number(room.settings.headlineFriendMix ?? 0) * 100)}
+              onChange={(e) => void engine.updateSettings({ headlineFriendMix: Number(e.target.value) / 100 })}
+            />
+          </label>
           <label className="toggle">
             <input type="checkbox" checked={!muted} onChange={(e) => setMuted(!e.target.checked)} />
             Sound effects {muted ? '(muted)' : 'on'}

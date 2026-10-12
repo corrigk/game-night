@@ -1,0 +1,283 @@
+/* ==========================================================================
+   Shared anonymous submit-and-vote screens
+   ========================================================================== */
+.anon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  width: min(60em, 100%);
+}
+.anon-card {
+  padding: 0.7em 1em;
+  font-size: 1.5em;
+  font-weight: 800;
+  text-align: left;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+}
+.anon-winner {
+  border-color: var(--accent);
+  background: var(--surface-strong);
+  box-shadow: var(--glow);
+  font-size: 1.8em;
+}
+.anon-winner-label {
+  font-size: 0.5em;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.anon-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6em;
+  font-size: 0.55em;
+  margin-top: 0.3em;
+}
+
+/* ==========================================================================
+   Acronym Attack
+   ========================================================================== */
+.acro-stage { gap: 0.8em; }
+.acro-theme {
+  margin: 0;
+  font-size: 2em;
+  font-weight: 800;
+  color: var(--accent);
+  text-wrap: balance;
+  max-width: 24em;
+}
+.acro-theme-phone {
+  color: var(--accent);
+  font-weight: 800;
+  margin: 0;
+}
+.acro-letters {
+  display: flex;
+  gap: 0.3em;
+  justify-content: center;
+}
+.acro-letter {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15em;
+  height: 1.3em;
+  font-family: var(--font-display);
+  font-size: calc(7em * var(--display-scale));
+  background: var(--primary);
+  color: var(--primary-text);
+  border-radius: var(--radius);
+  box-shadow: var(--card-shadow);
+}
+.acro-letters-small {
+  font-family: var(--font-display);
+  font-size: 2.4em;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+.acro-letters-phone {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  letter-spacing: 0.2em;
+  justify-content: center;
+  color: var(--accent);
+}
+.acro-letter-input {
+  width: 2.8rem;
+  height: 3.2rem;
+  font-size: 1.8rem;
+  flex: none;
+}
+.acro-answer { font-size: 1.1em; }
+
+/* ==========================================================================
+   Plot Twist
+   ========================================================================== */
+.twist-stage { gap: 0.8em; }
+.twist-setup {
+  max-width: 24em;
+  min-height: 5.5em;
+  margin: 0;
+  font-size: 2.3em;
+  line-height: 1.35;
+  font-weight: 700;
+  text-wrap: balance;
+}
+.twist-setup-small {
+  font-size: 1.5em;
+  min-height: 0;
+  color: var(--text-dim);
+}
+.twist-caret { color: var(--accent); animation: pulse 0.9s ease-in-out infinite; }
+.twist-genre { font-size: 1.2em; }
+.twist-setup-phone { margin: 0; font-size: 1.1rem; line-height: 1.4; }
+
+/* ==========================================================================
+   Fake Headlines
+   ========================================================================== */
+.news-stage { gap: 1em; }
+.news-photo {
+  position: relative;
+  width: 100%;
+  max-width: 48em;
+  aspect-ratio: 3 / 2;
+  display: grid;
+  place-items: center;
+  background: #000;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+.news-photo img { width: 100%; height: 100%; object-fit: contain; }
+.news-chyron {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: stretch;
+  background: rgba(10, 20, 60, 0.92);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.4em;
+}
+.news-tag {
+  padding: 0.35em 0.8em;
+  background: #d62828;
+  letter-spacing: 0.08em;
+}
+.news-chyron-text { padding: 0.35em 0.9em; }
+.news-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 2em;
+  align-items: start;
+}
+.news-list { display: flex; flex-direction: column; gap: 0.7em; }
+.news-ask {
+  font-family: var(--font-display);
+  font-size: calc(2em * var(--display-scale));
+  color: var(--accent);
+}
+.news-headline {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 900;
+  line-height: 1.15;
+}
+.news-card { border-left: 8px solid #d62828; }
+.news-badges { display: flex; flex-wrap: wrap; gap: 0.4em; }
+.news-badge {
+  padding: 0.05em 0.6em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.5em;
+  letter-spacing: 0.06em;
+}
+.news-badge-bel { background: var(--success); color: #04210f; }
+
+/* ==========================================================================
+   Mad Libs Theatre
+   ========================================================================== */
+.ml-stage { gap: 0.9em; }
+.ml-scripts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18em, 1fr));
+  gap: 0.8em;
+  width: min(75em, 100%);
+}
+.ml-script {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+  padding: 0.8em 1em;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.ml-script:hover { box-shadow: 0 0 0 3px var(--primary); }
+.ml-script b { font-size: 1.3em; }
+.ml-script span { color: var(--text-dim); font-size: 0.95em; }
+.ml-script small { color: var(--accent); }
+.ml-script-played { opacity: 0.55; }
+.ml-cast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8em;
+  justify-content: center;
+}
+.ml-cast-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  min-width: 11em;
+  padding: 0.6em 1em;
+  background: var(--surface);
+  border: 4px solid var(--rc, var(--border));
+  border-radius: var(--radius);
+  opacity: 0.8;
+}
+.ml-cast-active { opacity: 1; transform: scale(1.06); box-shadow: 0 0 24px var(--rc); }
+.ml-role {
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  font-size: 1.3em;
+  color: var(--rc);
+  filter: brightness(1.15);
+}
+.ml-now {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.5em 1.2em;
+  border: 5px solid var(--rc, var(--accent));
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 1.6em;
+}
+.ml-now b { font-family: var(--font-display); color: var(--rc); }
+.ml-progress {
+  width: min(50em, 90%);
+  height: 0.9em;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+.ml-progress i { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+.ml-finale { display: flex; flex-direction: column; gap: 0.6em; height: calc(100vh - 12em); }
+.ml-script-scroll { flex: 1; overflow-y: auto; padding-right: 1em; }
+.ml-fline {
+  margin: 0 0 0.7em;
+  padding-left: 0.7em;
+  border-left: 0.25em solid var(--rc);
+}
+.ml-fline p { margin: 0.1em 0 0; font-size: 1.7em; line-height: 1.4; }
+.ml-frole { font-family: var(--font-display); color: var(--rc); filter: brightness(1.2); text-transform: var(--display-transform); }
+.ml-fdir { margin-left: 0.6em; color: var(--text-dim); font-size: 0.95em; }
+.ml-word { padding: 0 0.25em; border-radius: 0.3em; background: var(--accent); color: var(--accent-text); font-weight: 800; }
+.ml-credits { text-align: center; padding: 1em 0 2em; }
+.ml-prompter { padding-bottom: 5rem; }
+.ml-pline {
+  padding: 0.7rem 0.8rem;
+  border-left: 6px solid var(--rc);
+  border-radius: 8px;
+  background: var(--surface);
+  opacity: 0.7;
+}
+.ml-pline-current { opacity: 1; background: var(--surface-strong); box-shadow: 0 0 0 3px var(--rc); }
+.ml-pline-past { opacity: 0.35; }
+.ml-cue { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.4rem; }
+.ml-cue span { font-weight: 800; }
+.ml-pname { font-family: var(--font-display); color: var(--rc); filter: brightness(1.2); font-size: 0.95rem; }
+.ml-pdir { font-style: italic; color: var(--text-dim); margin: 0.15rem 0; }
+.ml-ptext { font-size: 1.35rem; font-weight: 700; line-height: 1.35; }
+
+@media (max-width: 900px) {
+  .news-split { grid-template-columns: 1fr; }
+}

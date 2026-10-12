@@ -23,6 +23,10 @@ Built with Vite + React + TypeScript and Supabase (Realtime, Postgres, Storage, 
 | 🐬 **Dolphin** | yes | One player (random among those who haven't gone) steps out of the room. Everyone else is secretly shown a physical task. The Dolphin returns and has 90s to work it out from spoken yes/no answers only. The host presses **Enter** (or Solved) when done. Dolphin: 100-500 by time left; everyone else +50 if solved. |
 | 🔥 **Hot Seat** | yes (teams) | Teams take turns. A guesser stands with their back to the TV while teammates describe the word without the 3 forbidden words or gestures. 60s per turn. Describers tap Got it / Skip (max 3, -1 each); other teams tap BUZZ to void a card. +1 per word. Winning team members get +300 each on the individual leaderboard. |
 | 🎬 **Movie Voting** | no | A utility game: everyone suggests 1-2 movies, then gets 2 votes. The top 3 move to a runoff, then a final vote picks tonight's movie. |
+| 🔠 **Acronym Attack** | yes | Random letters appear (3 in round 1, then 4). Write a phrase with one word per letter, in order. Anonymous vote, authors revealed. Votes ×100 plus a 200 winner bonus. Optional theme line above the letters; hard mode allows Q/V/X/Z. |
+| 🌀 **Plot Twist** | yes | A 2-3 sentence story setup types out on the TV. Everyone writes the twist ending (160 chars). Anonymous vote, authors revealed. Votes ×100 plus a 200 winner bonus. |
+| 📰 **Fake Headlines** | yes | A photo from the `headline` pool is on the TV (never the same photo twice in a night). Write a fake news headline. Vote 1: Funniest. Vote 2: Most Believable. Each category pays per vote plus a winner bonus. |
+| 🎭 **Mad Libs Theatre** | no | A group script performance. Everyone fills secret blanks, a small cast performs the finished script from private prompters on their phones, and everyone else watches. The script is hidden from audience phones and the TV until an optional finale reveals it with each word colored by its author. |
 | ⚡ **Tap Race** | yes | A 30-second warm-up. Great for checking everyone's phone works. |
 
 At the end of the night, **Final Awards** on the hub shows the podium and silly superlatives
@@ -44,6 +48,7 @@ Dream Home Hunter, Star Performer, Participation Trophy).
    4. `20261011000300_usage_and_veto.sql`
    5. `20261012000000_teams.sql`
    6. `20261012000100_new_game_content.sql`
+   7. `20261013000000_acronym_twist_headlines_madlibs.sql`
 
    (Or with the Supabase CLI: `supabase link` then `supabase db push`.) Running a file twice
    fails harmlessly with "already exists"; just skip it.
@@ -102,6 +107,10 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
   added, 12 built-in placeholder pictures are used. The host drawer's slider sets how often a
   friends photo shows up (default 30%).
 - **Emoji titles:** `{"title": "Jonah and the Whale", "category": "bible"}`. Categories used: movies, bible, saints, songs, foods, tv. Decoys come from the same category, so keep 6+ titles per category.
+- **Acronym themes:** `{"text": "A very suspicious casserole"}`.
+- **Plot Twist setups:** `{"setup": "Two or three sentences…", "genre": "Mystery"}`.
+- **Mad Libs scripts:** `{"id": "smoky-mountains", "title": "…", "mode": "script", "description": "…", "roles": [{"name": "Dad", "color": "#e67e22"}], "blanks": [{"id": "b1", "prompt": "A gas station snack", "kind": "free"}, {"id": "b8", "prompt": "A friend's name", "kind": "roster"}], "lines": [{"role": "Dad", "text": "Welcome! Our van runs on {{b1}}.", "direction": "(spreads arms wide)"}]}`. Use `{{blank_id}}` in line text (the same id can repeat and always gets the same word). `roster` blanks are filled with a random player's name. Directions never contain blanks. Scripts are validated on import with a clear error naming the script and line (unknown placeholder, unknown role, duplicate blank id, and so on); nothing is saved if any script is invalid.
+- **Headline photos:** upload in `/admin` → *Caption photos*, choosing the **headline** pool (there's a pool filter on the list too). With none uploaded, 8 built-in placeholder photos are used. Use the drawer slider to mix in your *friends* photos.
 - **Dolphin tasks:** `{"text": "Put a sock on a lamp", "difficulty": "easy"}`. Keep them physical, safe and family-friendly: no touching people, stunts, leaving the room, or eating.
 - **Hot Seat words:** `{"word": "Pizza", "forbidden": ["cheese", "pepperoni", "slice"], "category": "food"}` (exactly 3 forbidden words).
 - **Player photos** (Caption This) upload to the private `zillow-screenshots` bucket under each player's own folder, so no extra setup is needed. Set the round count to the number of photos you expect; once uploaded photos run out, the friends/generic pools take over. If a photo isn't suitable, use **Skip prompt** in the host drawer.
@@ -127,6 +136,20 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
 **Hot Seat** controls (drawer): Got it (`Enter`), Skip card (free), Undo last point, and `P` to pause the turn timer. Rounds: a round is every team going once; **+1 round** adds a full round. Card text (word and forbidden words) is shown only on the TV, which faces away from the guesser; phones only get the buttons.
 
 **Movie Voting**: no points. The suggestions are merged if two people suggest the same movie. Set rounds to 2 for submit+vote then a final, or 3+ for extra runoffs. Ties at the cutoff all advance, and a tie for first shows as co-winners.
+
+## Acronym Attack, Plot Twist, Fake Headlines and Mad Libs Theatre: host notes
+
+**Acronym Attack** (drawer): toggle the theme line, hard mode, and the number of letters (auto = 3 then 4).
+
+**Fake Headlines**: press **S** (or Skip prompt in the drawer) to skip a bad photo; **Skip & never show again** retires it. Photos never repeat in a night, even across several Fake Headlines games. The believable vote can be turned off in `src/games/headlines/config.ts`.
+
+**Mad Libs Theatre**: rounds = scripts. At the start of each script you choose one on the TV (or hit Space for a surprise), or queue several in the drawer. Then:
+1. **Fill (90s):** every player gets their own secret blanks (prompts only, never the script). Roster blanks are auto-filled with player names (toggle "Use player names").
+2. **Casting:** Random (avoids players who've already performed), Volunteers (20s "I want to perform" button), or pick each role yourself in the drawer. With fewer players than roles, someone takes more than one.
+3. **Curtain up** (3-2-1), then the show. Cast phones show only their own lines, with the previous line as a cue and the current line highlighted. Advance with **Space**; the performer who just finished can also tap **Done**. Drawer: Back a line, Next line, Pause (`P`).
+4. **Finale** (optional): the whole script scrolls on the TV with each filled-in word highlighted in its author's color. Turn on **Narrator** in the drawer to have the browser read it aloud (sound must be unmuted).
+
+The script is protected in the database: cast members can read only their own lines, audience phones read none, and the TV shows only the title, cast and progress until the finale.
 
 ## Running a game night
 
@@ -154,6 +177,7 @@ If the TV refreshes, it resumes the same room and the same step.
 | `Q`     | Full-screen join QR (any time, for latecomers) |
 | `P`     | Pause / resume the timer |
 | `T`     | Team setup |
+| `S`     | Skip the current prompt / photo |
 | `Enter` | The game's "yes": Dolphin solved, Hot Seat got-it |
 | `Esc`   | Close a dialog               |
 
@@ -199,6 +223,10 @@ Do this a day or two before, ideally with 3-4 friends on real phones.
 - [ ] Hot Seat (use 4+ players): guesser's phone is dark, describers tap Got it, the other team's BUZZ voids a card and flashes the TV, turn summary shows between turns.
 - [ ] Movie Voting: duplicates merge, each person gets 2 votes, top 3 go to a runoff.
 - [ ] Teams: shuffle, rename, move a player, join a new phone late.
+- [ ] Acronym Attack: a word with the wrong first letter shows an inline error and can't be sent.
+- [ ] Plot Twist: the setup types out on the TV; phones show it instantly.
+- [ ] Fake Headlines: two votes (Funniest, then Most Believable); `S` skips a photo; no photo repeats.
+- [ ] Mad Libs Theatre (4+ players): audience phones say "Watch the show!", cast phones show only their lines, the TV shows no script text until the finale, and the Done button advances the show.
 - [ ] Tap Race: green button works, results show.
 - [ ] Most Likely To: vote, reveal, majority points.
 - [ ] Weird Facts: typing the real answer is rejected; a fake matching someone else's is rejected; truth + blurb reveal.
