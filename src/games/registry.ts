@@ -1,4 +1,5 @@
 import { captionThis } from './caption/captionThis';
+import { emojiTranslation } from './emoji/emojiTranslation';
 import { mostLikely } from './mostLikely/mostLikely';
 import { storyChain } from './story/storyChain';
 import { talentShow } from './talent/talentShow';
@@ -18,6 +19,7 @@ export const GAME_LIST: GameModule[] = [
   storyChain,
   zillowHunt,
   talentShow,
+  emojiTranslation,
   tapRace,
 ];
 

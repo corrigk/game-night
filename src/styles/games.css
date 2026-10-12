@@ -796,3 +796,66 @@
   font-size: 0.9em;
   color: var(--text-dim);
 }
+
+/* ==========================================================================
+   Emoji Translation
+   ========================================================================== */
+.emoji-stage {
+  gap: 0.8em;
+}
+.emoji-clue {
+  font-size: 8em;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-align: center;
+  max-width: 100%;
+  word-break: keep-all;
+}
+.emoji-clue-mid {
+  font-size: 5em;
+}
+.emoji-clue-small {
+  font-size: 2.6rem;
+  line-height: 1.2;
+  min-height: 3.2rem;
+}
+.tv .emoji-clue-small {
+  font-size: 3.5em;
+}
+.emoji-cat {
+  font-size: 1.4em;
+}
+.emoji-compose {
+  padding: 0.6rem;
+  border: 3px dashed var(--border);
+  border-radius: var(--radius);
+}
+.emoji-palette {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+  gap: 0.2rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.3rem;
+  background: var(--surface);
+  border-radius: var(--radius);
+}
+.emoji-key {
+  aspect-ratio: 1;
+  font-size: 1.6rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.emoji-key:active {
+  background: var(--surface-strong);
+}
+.emoji-key:disabled {
+  opacity: 0.3;
+}
+.emoji-winner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+}

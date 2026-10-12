@@ -231,6 +231,7 @@ export class HostEngine {
       },
       award: (events) => self.award(events),
       endRound: () => self.endRound(),
+      endGame: () => self.showResults(),
     };
   }
 

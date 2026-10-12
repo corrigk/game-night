@@ -117,6 +117,8 @@ export interface GameCtx {
   /** Merge into engine-private run state (never visible to phones). */
   saveRun(state: Record<string, unknown>): Promise<void>;
   award(events: { playerId: string; points: number; reason: string }[]): Promise<void>;
+  /** End the whole game now and show results (points are kept). */
+  endGame(): Promise<void>;
   /** Finish this round: next round, or results after the last one. */
   endRound(): Promise<void>;
 }

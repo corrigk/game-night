@@ -8,7 +8,10 @@ export type BankTable =
   | 'caption_images'
   | 'story_seeds'
   | 'zillow_prompts'
-  | 'talents';
+  | 'talents'
+  | 'emoji_titles'
+  | 'dolphin_tasks'
+  | 'hot_seat_words';
 
 export interface BankRow {
   id: string;

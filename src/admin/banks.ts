@@ -52,6 +52,34 @@ export const BANKS: Bank[] = [
     ],
   },
   {
+    table: 'emoji_titles',
+    label: 'Emoji titles',
+    help: 'Titles players turn into emoji clues. Decoys are drawn from the same category, so keep 6+ per category. Categories used so far: movies, bible, saints, songs, foods, tv.',
+    fields: [
+      { key: 'title', label: 'Title', required: true, placeholder: 'Jonah and the Whale' },
+      { key: 'category', label: 'Category', required: true, placeholder: 'bible' },
+    ],
+  },
+  {
+    table: 'dolphin_tasks',
+    label: 'Dolphin tasks',
+    help: 'Physical, safe, family-friendly tasks the group secretly assigns to the Dolphin. No touching people, stunts, leaving the room, or eating.',
+    fields: [
+      { key: 'text', label: 'Task', type: 'textarea', required: true, placeholder: 'Put a sock on a lamp' },
+      { key: 'difficulty', label: 'Difficulty', type: 'select', options: ['easy', 'medium', 'hard'] },
+    ],
+  },
+  {
+    table: 'hot_seat_words',
+    label: 'Hot Seat words',
+    help: 'A target word plus exactly 3 forbidden words (comma separated). Forbidden words never appear on the guesser\'s phone.',
+    fields: [
+      { key: 'word', label: 'Word', required: true, placeholder: 'Pizza' },
+      { key: 'forbidden', label: 'Forbidden (3, comma separated)', type: 'tags', required: true, placeholder: 'cheese, pepperoni, slice' },
+      { key: 'category', label: 'Category', placeholder: 'food' },
+    ],
+  },
+  {
     table: 'talents',
     label: 'Talents',
     help: 'Absurd talents handed out at random in Talent Show. Phrase them as a command: "Juggle three socks".',

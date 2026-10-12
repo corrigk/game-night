@@ -129,5 +129,44 @@
     {
       "text": "Perform a magic trick that definitely fails, with total confidence"
     }
+  ],
+  "emoji_titles": [
+    {
+      "title": "Finding Nemo",
+      "category": "movies"
+    },
+    {
+      "title": "Jonah and the Whale",
+      "category": "bible"
+    },
+    {
+      "title": "Baby Shark",
+      "category": "songs"
+    },
+    {
+      "title": "Tacos",
+      "category": "foods"
+    }
+  ],
+  "dolphin_tasks": [
+    {
+      "text": "Put a sock on a lamp",
+      "difficulty": "easy"
+    },
+    {
+      "text": "Stack three items from the room on top of one another on the floor",
+      "difficulty": "medium"
+    }
+  ],
+  "hot_seat_words": [
+    {
+      "word": "Pizza",
+      "forbidden": [
+        "cheese",
+        "pepperoni",
+        "slice"
+      ],
+      "category": "food"
+    }
   ]
 }

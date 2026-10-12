@@ -11,6 +11,8 @@ export const REASON = {
   zilFinal: 'Zillow Hunt: final placement',
   talent: 'Talent Show: performance',
   talentEncore: 'Talent Show: encores',
+  emojiGuess: 'Emoji Translation: correct guess',
+  emojiComposer: 'Emoji Translation: clue artist',
 } as const;
 
 export const WF_TRUTH_POINTS = 300;
