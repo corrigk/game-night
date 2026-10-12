@@ -15,7 +15,7 @@ Built with Vite + React + TypeScript and Supabase (Realtime, Postgres, Storage, 
 | ---- | ------ | ------------ |
 | 👉 **Most Likely To** | yes | A prompt appears; everyone votes for a player (self-vote allowed). Reveal with counts. Voters who match the majority score. |
 | 🧐 **Weird Facts** | yes | Write a fake answer to a real fact (answers matching the truth, or each other, are bounced back for a retry), vote for the truth, then count through the picks. Find the truth +300, fool a player +150 each. |
-| 🖼️ **Caption This** | yes | A photo is on the TV. Each phone has a private 7-card hand plus a write-your-own slot. Anonymous vote, winner revealed. |
+| 🖼️ **Caption This** | yes | A photo is on the TV. Each phone has a private 7-card hand plus a write-your-own slot. Anonymous vote, winner revealed. Round 1 opens with an optional **photo step**: every player can take or pick a photo from their phone, and those play first (one per round, photographer revealed with the results). Turn it off in the host drawer. |
 | 📜 **Story Chain** | no | Everyone starts a story (genre + opening line). Each round the stories rotate and you see only the last line. Finale: each person reads the story they started while the TV scrolls it, then reveals authors by color. |
 | 🏠 **Zillow Hunt** | yes | Search Zillow on your own phone, submit a link + 1-3 screenshots. Anonymous gallery vote, top 3 pitch for 45s, final vote. "Call it out" on filter rounds; the host rules. Nothing is scraped or embedded. |
 | 🎭 **Talent Show** | yes | Everyone is secretly assigned an absurd talent they cannot do and gets 2 minutes to prepare, then performs live. The audience rates 1-5 stars. |
@@ -104,6 +104,7 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
 - **Emoji titles:** `{"title": "Jonah and the Whale", "category": "bible"}`. Categories used: movies, bible, saints, songs, foods, tv. Decoys come from the same category, so keep 6+ titles per category.
 - **Dolphin tasks:** `{"text": "Put a sock on a lamp", "difficulty": "easy"}`. Keep them physical, safe and family-friendly: no touching people, stunts, leaving the room, or eating.
 - **Hot Seat words:** `{"word": "Pizza", "forbidden": ["cheese", "pepperoni", "slice"], "category": "food"}` (exactly 3 forbidden words).
+- **Player photos** (Caption This) upload to the private `zillow-screenshots` bucket under each player's own folder, so no extra setup is needed. Set the round count to the number of photos you expect; once uploaded photos run out, the friends/generic pools take over. If a photo isn't suitable, use **Skip prompt** in the host drawer.
 - Without any talents in the database, the Talent Show uses a built-in list.
 
 ---

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
+import { downscale, randomId } from '../../lib/image';
 import { draw, shuffle } from '../../lib/random';
 import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
 import { errorCode, supabase } from '../../lib/supabase';
@@ -20,10 +21,15 @@ const HAND_SIZE = 7;
 const WRITE_SECONDS = 50;
 const VOTE_SECONDS = 35;
 const MAX_LEN = 80;
+const PHOTO_SECONDS = 60;
+/** Player photos reuse the existing private bucket (players may write only into their own folder). */
+const PLAYER_BUCKET = 'zillow-screenshots';
 
 interface ImageRef {
   id?: string;
-  pool: 'generic' | 'friends';
+  pool: 'generic' | 'friends' | 'player';
+  bucket?: string;
+  by?: string | null;
   url?: string | null;
   storage_path?: string | null;
   credit?: string | null;
@@ -62,11 +68,15 @@ interface RunState {
   cardIds?: Record<string, string>;
   ci?: number;
   hands?: Record<string, string[]>;
+  photosDone?: boolean;
+  playerPhotos?: { path: string; by: string }[];
+  ppi?: number;
+  currentBy?: string | null;
 }
 
 async function resolveUrl(img: ImageRef): Promise<string> {
   if (img.url) return img.url;
-  const { data } = await supabase.storage.from('caption-images').createSignedUrl(img.storage_path!, 60 * 60 * 3);
+  const { data } = await supabase.storage.from(img.bucket ?? 'caption-images').createSignedUrl(img.storage_path!, 60 * 60 * 3);
   return data?.signedUrl ?? '';
 }
 
@@ -88,6 +98,46 @@ async function deal(ctx: GameCtx) {
   }
   await ctx.saveRun({ cards, ci, hands });
   await ctx.addSubs(ctx.players.map((p) => ({ kind: 'hand', player_id: p.id, payload: { cards: hands[p.id] } })));
+}
+
+/** Pick this round's photo (players' own photos first), deal hands, and open captioning. */
+async function beginWrite(ctx: GameCtx) {
+  const st = ctx.run.state as RunState;
+  let image: ImageRef;
+  const mine = st.playerPhotos?.[st.ppi ?? 0];
+  if (mine) {
+    image = { pool: 'player', bucket: PLAYER_BUCKET, storage_path: mine.path, by: mine.by };
+    await ctx.saveRun({ ppi: (st.ppi ?? 0) + 1 });
+  } else {
+    const mix = Number(ctx.room.settings.captionFriendMix ?? 0.3);
+    const useFriends = (st.friends?.length ?? 0) > 0 && Math.random() < mix;
+    if (useFriends) {
+      const d = draw(st.friends!, st.fi ?? 0);
+      image = d.item;
+      await ctx.saveRun({ friends: d.deck, fi: d.cursor });
+    } else {
+      const d = draw(st.generic?.length ? st.generic : BUILTIN_IMAGES, st.gi ?? 0);
+      image = d.item;
+      await ctx.saveRun({ generic: d.deck, gi: d.cursor });
+    }
+    markUsed('caption_images', [image.id]);
+  }
+  await ctx.saveRun({ cur: image.id ? { table: 'caption_images', id: image.id } : null, currentBy: image.by ?? null });
+  const imageUrl = await resolveUrl(image);
+  await deal(ctx); // rows are written before the step so phones find them on their first fetch
+  await ctx.setStep('write', { imageUrl, maxLen: MAX_LEN }, { seconds: WRITE_SECONDS, submit: ['caption'] });
+}
+
+/** End the photo step: keep everything uploaded, in random order, and start round 1. */
+async function collectPhotos(ctx: GameCtx) {
+  const photos = shuffle(
+    ctx
+      .roundSubs('photo')
+      .filter((s) => s.player_id && typeof s.payload.path === 'string')
+      .map((s) => ({ path: String(s.payload.path), by: s.player_id! })),
+  );
+  await ctx.saveRun({ photosDone: true, playerPhotos: photos, ppi: 0 });
+  return beginWrite(ctx);
 }
 
 async function startVote(ctx: GameCtx) {
@@ -138,7 +188,7 @@ async function reveal(ctx: GameCtx) {
     'caption_cards',
     ctx.roundSubs('caption').filter((s) => s.payload.source === 'card').map((s) => cardIds[String(s.payload.text)]),
   );
-  await ctx.setStep('reveal', { imageUrl: ctx.room.state.imageUrl, items, winners });
+  await ctx.setStep('reveal', { imageUrl: ctx.room.state.imageUrl, items, winners, photoBy: st.currentBy ?? null });
 }
 
 export const captionThis: GameModule = {
@@ -148,6 +198,7 @@ export const captionThis: GameModule = {
   tagline: 'One photo. Many bad ideas.',
   rules: [
     'A photo appears on the TV.',
+    'Add a funny photo from your phone and it may show up for everyone to caption.',
     'Pick a caption card from your hand, or write your own.',
     'Vote for the funniest caption (not your own). Winner takes the bonus.',
   ],
@@ -180,27 +231,16 @@ export const captionThis: GameModule = {
 
   async startRound(ctx) {
     const st = ctx.run.state as RunState;
-    const mix = Number(ctx.room.settings.captionFriendMix ?? 0.3);
-    const useFriends = (st.friends?.length ?? 0) > 0 && Math.random() < mix;
-    let image: ImageRef;
-    if (useFriends) {
-      const d = draw(st.friends!, st.fi ?? 0);
-      image = d.item;
-      await ctx.saveRun({ friends: d.deck, fi: d.cursor });
-    } else {
-      const d = draw(st.generic?.length ? st.generic : BUILTIN_IMAGES, st.gi ?? 0);
-      image = d.item;
-      await ctx.saveRun({ generic: d.deck, gi: d.cursor });
+    // Round 1 opens with an optional photo step, unless the host turned it off.
+    if (ctx.room.round === 1 && !st.photosDone && ctx.room.settings.captionPlayerPhotos !== false) {
+      return ctx.setStep('photos', {}, { seconds: PHOTO_SECONDS, submit: ['photo'] });
     }
-    markUsed('caption_images', [image.id]);
-    await ctx.saveRun({ cur: image.id ? { table: 'caption_images', id: image.id } : null });
-    const imageUrl = await resolveUrl(image);
-    await deal(ctx); // rows are written before the step so phones find them on their first fetch
-    await ctx.setStep('write', { imageUrl, maxLen: MAX_LEN }, { seconds: WRITE_SECONDS, submit: ['caption'] });
+    return beginWrite(ctx);
   },
 
   async next(ctx) {
     const step = ctx.room.state.step;
+    if (step === 'photos') return collectPhotos(ctx);
     if (step === 'write') return startVote(ctx);
     if (step === 'vote') return reveal(ctx);
     return ctx.endRound();
@@ -210,6 +250,10 @@ export const captionThis: GameModule = {
     const step = ctx.room.state.step;
     const active = ctx.players.filter((p) => p.connected);
     if (!active.length) return false;
+    if (step === 'photos') {
+      const sent = new Set(ctx.roundSubs('photo').map((s) => s.player_id));
+      return active.every((p) => sent.has(p.id));
+    }
     if (step === 'write') {
       const sent = new Set(ctx.roundSubs('caption').map((s) => s.player_id));
       return active.every((p) => sent.has(p.id));
@@ -219,6 +263,13 @@ export const captionThis: GameModule = {
       return active.every((p) => voted.has(p.id));
     }
     return false;
+  },
+
+  /** Skip: during the photo step, move on; otherwise deal the next photo (uploaded photos are kept). */
+  async skip(ctx) {
+    if (ctx.room.state.step === 'photos') return collectPhotos(ctx);
+    await ctx.removeSubs(ctx.roundSubs().filter((s) => s.kind !== 'photo').map((s) => s.id));
+    return beginWrite(ctx);
   },
 
   TV: CaptionTV,
@@ -234,6 +285,17 @@ function CaptionTV({ room, players }: TVGameProps) {
   const step = room.state.step;
   const map = new Map(players.map((p) => [p.id, p]));
   const done = (room.state.done ?? []).length;
+
+  if (step === 'photos') {
+    return (
+      <div className="center-stack">
+        <h1 className="display">📸 Add a photo!</h1>
+        <p className="lead">Take or pick a funny photo on your phone. It might end up on the big screen for everyone to caption.</p>
+        <p className="lead dim">{done} of {players.length} added one (optional)</p>
+        <p className="tv-footer"><kbd>Space</kbd> to start</p>
+      </div>
+    );
+  }
 
   if (step === 'write') {
     return (
@@ -263,12 +325,14 @@ function CaptionTV({ room, players }: TVGameProps) {
 
   const items = (room.state.items as Item[]) ?? [];
   const winners = (room.state.winners as string[]) ?? [];
+  const photoBy = room.state.photoBy ? map.get(String(room.state.photoBy)) : undefined;
   const winItems = items.filter((i) => winners.includes(i.id));
   const rest = items.filter((i) => !winners.includes(i.id));
   return (
     <div className="cap-split">
       <Photo url={imageUrl} />
       <div className="cap-list">
+        {photoBy && <p className="lead">📸 Photo by <PlayerChip player={photoBy} size="md" /></p>}
         {winItems.length === 0 && <p className="lead">Nobody voted. Tough crowd.</p>}
         {winItems.map((it) => {
           const author = it.authorId ? map.get(it.authorId) : null;
@@ -308,6 +372,8 @@ function CaptionPhone({ room, me, players, api }: PhoneGameProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
   const mine = api.mySubs.find((s) => s.kind === 'caption');
+
+  if (step === 'photos') return <PhotoUpload room={room} me={me} api={api} />;
 
   if (step === 'write') {
     const hand = ((api.mySubs.find((s) => s.kind === 'hand')?.payload.cards as string[] | undefined) ?? []);
@@ -398,8 +464,10 @@ function CaptionPhone({ room, me, players, api }: PhoneGameProps) {
   const won = me2 && winners.includes(me2.id);
   const champ = items.find((i) => winners.includes(i.id));
   const champAuthor: Player | undefined = champ?.authorId ? players.find((p) => p.id === champ.authorId) : undefined;
+  const photoBy = room.state.photoBy ? players.find((p) => p.id === room.state.photoBy) : undefined;
   return (
     <div className="phone-center center-stack">
+      {photoBy && <p className="dim">📸 Photo by {photoBy.name}</p>}
       {champ && (
         <>
           <p className="dim">Funniest caption</p>
@@ -412,6 +480,60 @@ function CaptionPhone({ room, me, players, api }: PhoneGameProps) {
       ) : (
         <p className="dim">You did not caption this one.</p>
       )}
+    </div>
+  );
+}
+
+/** Optional round-1 step: take or pick a photo that may be shown for everyone to caption. */
+function PhotoUpload({ room, me, api }: Pick<PhoneGameProps, 'room' | 'me' | 'api'>) {
+  const mine = api.mySubs.find((s) => s.kind === 'photo');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const library = useRef<HTMLInputElement>(null);
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
+
+  const send = async () => {
+    if (!file) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const blob = await downscale(file, 1600, 0.82);
+      const path = `${me.user_id}/caption/${room.current_run_id}/${randomId()}.jpg`;
+      const up = await supabase.storage.from(PLAYER_BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+      if (up.error) throw up.error;
+      await api.submit('photo', { path });
+      setFile(null);
+    } catch (e) {
+      setErr(errorCode(e) === 'NOT_ACCEPTING' ? 'Too late, the photo step is over.' : errorCode(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="stack gap">
+      <h2 className="center">📸 Add a photo</h2>
+      <p className="center dim">Something funny, weird or random. It may show up on the TV for everyone to caption. Keep it friendly!</p>
+      {mine && !file && (
+        <div className="card center-stack">
+          <h3>✅ Your photo is in</h3>
+          <p className="dim small">Pick another below to replace it.</p>
+        </div>
+      )}
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <input ref={library} type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      <div className="row gap">
+        <button className="btn btn-lg grow" onClick={() => camera.current?.click()}>📷 Take a photo</button>
+        <button className="btn btn-lg grow" onClick={() => library.current?.click()}>🖼️ Choose one</button>
+      </div>
+      {preview && <img className="cap-thumb" src={preview} alt="Your photo" />}
+      <button className="btn btn-primary btn-lg" disabled={busy || !file} onClick={() => void send()}>
+        {busy ? 'Uploading…' : mine ? 'Replace my photo' : 'Use this photo'}
+      </button>
+      {err && <p className="error center">{err}</p>}
+      <p className="center dim small">This step is optional. Waiting for the host to start.</p>
     </div>
   );
 }

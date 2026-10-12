@@ -123,6 +123,14 @@ export function HostDrawer({
               </button>
             ))}
           </div>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={room.settings.captionPlayerPhotos !== false}
+              onChange={(e) => void engine.updateSettings({ captionPlayerPhotos: e.target.checked })}
+            />
+            Caption This: players add photos
+          </label>
           <label className="field">
             <span>Caption This: friend photos {Math.round(Number(room.settings.captionFriendMix ?? 0.3) * 100)}%</span>
             <input
