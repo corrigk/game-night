@@ -4,6 +4,7 @@ import { SetupNeeded } from '../components/HostGate';
 import { syncClock } from '../lib/clock';
 import { usePresence } from '../lib/presence';
 import { useRoomStore } from '../lib/roomStore';
+import { TeamsContext } from '../lib/teamsContext';
 import { load, save } from '../lib/storage';
 import { ensureSession, errorCode, isConfigured, slot, storageSuffix } from '../lib/supabase';
 import type { Player } from '../lib/types';
@@ -163,7 +164,11 @@ function PhoneRoom({
     );
   }
 
-  return <PhoneShell room={room} players={players} me={me} live={snap.live} onPlayerUpdated={(p) => store?.applyPlayer(p)} onLeave={onLeave} />;
+  return (
+    <TeamsContext.Provider value={snap.teams}>
+      <PhoneShell room={room} players={players} me={me} live={snap.live} teams={snap.teams} onPlayerUpdated={(p) => store?.applyPlayer(p)} onLeave={onLeave} />
+    </TeamsContext.Provider>
+  );
 }
 
 function CodeEntry({ onSubmit }: { onSubmit: (code: string) => void }) {

@@ -57,3 +57,13 @@ export function textOn(hex: string): string {
   const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
   return lum > 0.22 ? '#111111' : '#ffffff';
 }
+
+/** Teams layer. Everything tunable about teams lives here. */
+export const TEAMS = {
+  defaultCount: 2,
+  maxCount: 4,
+  /** Fun default names, handed out in order (new teams take the first unused one). */
+  names: ['Team Saints', 'Team Sinners', 'Team Angels', 'Team Gremlins', 'Team Pilgrims', 'Team Rascals'],
+  colors: ['#e53935', '#1e88e5', '#43a047', '#fbc02d'],
+  emojis: ['🚀', '🍌', '👺', '🪿'],
+};

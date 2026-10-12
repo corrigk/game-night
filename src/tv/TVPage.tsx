@@ -4,7 +4,7 @@ import { HostGate } from '../components/HostGate';
 import { syncClock } from '../lib/clock';
 import { usePresence } from '../lib/presence';
 import { useRoomStore } from '../lib/roomStore';
-import { assignNewcomers, teamsOf } from '../lib/teams';
+import { TeamsContext } from '../lib/teamsContext';
 import { unlockAudio } from '../lib/sound';
 import { load, save } from '../lib/storage';
 import { errorCode, supabase } from '../lib/supabase';
@@ -13,6 +13,7 @@ import { useTheme } from '../themes/themes';
 import { HostEngine, useEngine } from './engine';
 import { BigQr } from './BigQr';
 import { HostDrawer } from './HostDrawer';
+import { TeamSetup } from './TeamSetup';
 import { TVScreens } from './TVScreens';
 
 const ROOM_KEY = 'partypack:tv-room';
@@ -71,6 +72,9 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
   const [engine, setEngine] = useState<HostEngine | null>(null);
   const [drawer, setDrawer] = useState(false);
   const [bigQr, setBigQr] = useState(false);
+  const [teamSetup, setTeamSetup] = useState(false);
+  const teamSetupRef = useRef(false);
+  teamSetupRef.current = teamSetup;
   const engineSnap = useEngine(engine);
   const online = usePresence(code, null);
   const roomReady = snap?.status === 'ready';
@@ -102,14 +106,10 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
   }, [engine, onlineKey, snap?.players.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Teams: late joiners land on the smallest team.
-  const teamsKey = JSON.stringify(snap?.room?.settings.teams ?? null) + String(snap?.players.length ?? 0);
+  const unassigned = Boolean(snap?.teams.length && snap.players.some((p) => !p.team_id || !snap.teams.some((t) => t.id === p.team_id)));
   useEffect(() => {
-    if (!engine || !snap?.room) return;
-    const t = teamsOf(snap.room.settings);
-    if (!t) return;
-    const next = assignNewcomers(snap.players, t);
-    if (next) void engine.updateSettings({ teams: { ...t, assign: next } });
-  }, [engine, teamsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (engine && unassigned) void engine.assignNewcomers();
+  }, [engine, unassigned, snap?.players.length]);
 
   // Keyboard shortcuts: H drawer, Space next, + add 15s.
   useEffect(() => {
@@ -119,10 +119,16 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (document.querySelector('.modal')) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (teamSetupRef.current) {
+        if (e.key === 'Escape' || e.key === 't' || e.key === 'T') setTeamSetup(false);
+        return;
+      }
       if (e.key === 'h' || e.key === 'H') {
         setDrawer((d) => !d);
       } else if (e.key === 'p' || e.key === 'P') {
         void engine?.togglePause();
+      } else if (e.key === 't' || e.key === 'T') {
+        setTeamSetup(true);
       } else if (e.key === 'q' || e.key === 'Q') {
         setBigQr((v) => !v);
       } else if (e.key === 'Escape') {
@@ -150,9 +156,11 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
   }
 
   return (
+    <TeamsContext.Provider value={snap.teams}>
     <div className="tv" onClick={unlockAudio}>
+      {teamSetup && <TeamSetup teams={snap.teams} players={snap.players} engine={engine} onClose={() => setTeamSetup(false)} />}
       {bigQr && <BigQr code={snap.room.code} onClose={() => setBigQr(false)} />}
-      <TVScreens room={snap.room} players={snap.players} engine={engine} engineSnap={engineSnap} online={online} />
+      <TVScreens room={snap.room} players={snap.players} teams={snap.teams} openTeams={() => setTeamSetup(true)} engine={engine} engineSnap={engineSnap} online={online} />
       {!snap.live && <div className="tv-offline">Reconnecting…</div>}
       {engineSnap.error && !drawer && (
         <button className="tv-error" onClick={engine.clearError}>
@@ -162,6 +170,11 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       <HostDrawer
         open={drawer}
         onClose={() => setDrawer(false)}
+        teams={snap.teams}
+        onOpenTeams={() => {
+          setDrawer(false);
+          setTeamSetup(true);
+        }}
         onShowQr={() => {
           setDrawer(false);
           setBigQr(true);
@@ -179,5 +192,6 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       />
       {!drawer && <div className="tv-hint">H · host controls</div>}
     </div>
+    </TeamsContext.Provider>
   );
 }

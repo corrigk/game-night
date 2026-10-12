@@ -3,6 +3,7 @@ import { Countdown } from '../components/Countdown';
 import { Leaderboard } from '../components/Leaderboard';
 import { TeamStandings } from '../components/TeamStandings';
 import { teamOf } from '../lib/teams';
+import type { Team } from '../lib/types';
 import { Modal } from '../components/Modal';
 import { Avatar, PlayerChip } from '../components/PlayerChip';
 import { GAMES } from '../games/registry';
@@ -46,6 +47,7 @@ export function PhoneShell({
   players,
   me,
   live,
+  teams,
   onPlayerUpdated,
   onLeave,
 }: {
@@ -53,13 +55,14 @@ export function PhoneShell({
   players: Player[];
   me: Player;
   live: boolean;
+  teams: Team[];
   onPlayerUpdated: (p: Player) => void;
   onLeave: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const { mySubs, myVotes, refresh } = useMine(room, me);
   const game = room.current_game ? GAMES[room.current_game] : undefined;
-  const team = teamOf(room.settings, me.id);
+  const team = teamOf(teams, me);
 
   const api: PhoneApi = useMemo(
     () => ({
@@ -121,7 +124,7 @@ export function PhoneShell({
             <h2 className="center">The host is picking a game…</h2>
             {rank > 0 && players.some((p) => p.score > 0) && <p className="center lead">You're #{rank}</p>}
             <div className="card">
-              <TeamStandings players={players} settings={room.settings} />
+              <TeamStandings players={players} teams={teams} />
               <Leaderboard players={players} highlightId={me.id} title="Tonight" />
             </div>
           </div>

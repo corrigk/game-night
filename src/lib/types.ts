@@ -45,6 +45,15 @@ export interface Player {
   score: number;
   connected: boolean;
   joined_at: string;
+  team_id?: string | null;
+}
+
+export interface Team {
+  id: string;
+  room_id: string;
+  name: string;
+  color: string;
+  created_at: string;
 }
 
 export type RunStatus = 'intro' | 'playing' | 'results' | 'done' | 'exited';

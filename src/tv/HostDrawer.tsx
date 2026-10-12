@@ -4,9 +4,8 @@ import { Confirm } from '../components/Modal';
 import { Avatar } from '../components/PlayerChip';
 import { GAMES } from '../games/registry';
 import { isMuted, onMuteChange, setMuted } from '../lib/sound';
-import type { Player, Room } from '../lib/types';
+import type { Player, Room, Team } from '../lib/types';
 import { THEMES } from '../themes/themes';
-import { balancedAssign, TEAM_DEFS, teamsOf } from '../lib/teams';
 import type { EngineSnapshot, HostEngine } from './engine';
 
 type Pending =
@@ -21,6 +20,8 @@ export function HostDrawer({
   open,
   onClose,
   onShowQr,
+  onOpenTeams,
+  teams,
   room,
   players,
   online,
@@ -31,6 +32,8 @@ export function HostDrawer({
   open: boolean;
   onClose: () => void;
   onShowQr: () => void;
+  onOpenTeams: () => void;
+  teams: Team[];
   room: Room;
   players: Player[];
   online: Set<string>;
@@ -42,7 +45,7 @@ export function HostDrawer({
   const [muted, setMutedState] = useState(isMuted());
   const [roster, setRoster] = useState((room.settings.roster ?? DEFAULT_ROSTER).join('\n'));
   const inGame = room.phase === 'intro' || room.phase === 'play';
-  const teams = teamsOf(room.settings);
+  const hasTeams = teams.length > 0;
   const game = room.current_game ? GAMES[room.current_game] : undefined;
 
   useEffect(() => onMuteChange(setMutedState), []);
@@ -140,14 +143,11 @@ export function HostDrawer({
                 <span className={`dot ${online.has(p.id) ? 'dot-on' : 'dot-off'}`} title={online.has(p.id) ? 'Connected' : 'Offline'} />
                 <Avatar player={p} size="sm" />
                 <span className="grow">{p.name}</span>
-                {teams && (
-              <select
-                className="team-select"
-                value={teams.assign[p.id] ?? 0}
-                onChange={(e) => void engine.updateSettings({ teams: { ...teams, assign: { ...teams.assign, [p.id]: Number(e.target.value) } } })}
-              >
-                {TEAM_DEFS.slice(0, teams.count).map((t, i) => (
-                  <option key={t.name} value={i}>{t.emoji} {t.name}</option>
+                {hasTeams && (
+              <select className="team-select" value={p.team_id ?? ''} onChange={(e) => void engine.movePlayer(p.id, e.target.value || null)}>
+                <option value="">no team</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
             )}
@@ -160,36 +160,11 @@ export function HostDrawer({
 
         <section>
           <h3>Teams</h3>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={Boolean(teams)}
-              onChange={(e) =>
-                void engine.updateSettings({
-                  teams: e.target.checked
-                    ? { enabled: true, count: (room.settings.teams as { count?: number } | undefined)?.count ?? 2, assign: balancedAssign(players, (room.settings.teams as { count?: number } | undefined)?.count ?? 2) }
-                    : { ...(room.settings.teams as object), enabled: false },
-                })
-              }
-            />
-            Play in teams (scores add up per team)
-          </label>
-          {teams && (
-            <div className="row gap wrap">
-              {[2, 3, 4].map((n) => (
-                <button
-                  key={n}
-                  className={`btn btn-sm${teams.count === n ? ' btn-primary' : ''}`}
-                  onClick={() => void engine.updateSettings({ teams: { enabled: true, count: n, assign: balancedAssign(players, n) } })}
-                >
-                  {n} teams
-                </button>
-              ))}
-              <button className="btn btn-sm" onClick={() => void engine.updateSettings({ teams: { ...teams, assign: balancedAssign(players, teams.count) } })}>
-                Shuffle
-              </button>
-            </div>
-          )}
+          <div className="row gap wrap">
+            <button className="btn btn-sm btn-primary" onClick={onOpenTeams}>Team setup <kbd>T</kbd></button>
+            {hasTeams && <button className="btn btn-sm" onClick={() => void engine.rerollTeams()}>🎲 Re-roll</button>}
+          </div>
+          <p className="dim small">{hasTeams ? teams.map((t) => t.name).join(' vs ') : 'Teams are off.'}</p>
         </section>
 
         <section>
@@ -216,7 +191,7 @@ export function HostDrawer({
             <button className="btn btn-sm btn-danger" onClick={() => setPending({ kind: 'newRoom' })}>Hard reset</button>
           </div>
           <p className="dim small">
-            Shortcuts: <kbd>H</kbd> drawer · <kbd>Space</kbd> next · <kbd>+</kbd> add 15s · <kbd>Q</kbd> big QR · <kbd>P</kbd> pause
+            Shortcuts: <kbd>H</kbd> drawer · <kbd>Space</kbd> next · <kbd>+</kbd> add 15s · <kbd>Q</kbd> big QR · <kbd>P</kbd> pause · <kbd>T</kbd> teams
           </p>
         </section>
       </aside>

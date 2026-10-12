@@ -1,73 +1,53 @@
+import { TEAMS } from '../config';
 import { shuffle } from './random';
-import type { Player, RoomSettings } from './types';
+import type { Player, Team } from './types';
 
-export interface TeamDef {
-  name: string;
-  emoji: string;
-  color: string;
+export const teamEmoji = (index: number) => TEAMS.emojis[index % TEAMS.emojis.length];
+
+export type TeamInfo = Team & { index: number; emoji: string };
+
+/** The team a player is on (or null). `teams` must be in stable order (sortTeams). */
+export function teamOf(teams: Team[], player: Pick<Player, 'team_id'> | null | undefined): TeamInfo | null {
+  if (!player?.team_id) return null;
+  const index = teams.findIndex((t) => t.id === player.team_id);
+  return index < 0 ? null : { ...teams[index], index, emoji: teamEmoji(index) };
 }
 
-export const TEAM_DEFS: TeamDef[] = [
-  { name: 'Red Rockets', emoji: '🚀', color: '#e53935' },
-  { name: 'Blue Bananas', emoji: '🍌', color: '#1e88e5' },
-  { name: 'Green Goblins', emoji: '👺', color: '#43a047' },
-  { name: 'Gold Geese', emoji: '🪿', color: '#ffc107' },
-];
-
-export interface TeamsSettings {
-  enabled: boolean;
-  count: number;
-  assign: Record<string, number>;
-}
-
-export function teamsOf(settings: RoomSettings | undefined): TeamsSettings | null {
-  const t = settings?.teams as TeamsSettings | undefined;
-  return t && t.enabled ? t : null;
-}
-
-export function teamOf(settings: RoomSettings | undefined, playerId: string): (TeamDef & { index: number }) | null {
-  const t = teamsOf(settings);
-  const i = t?.assign[playerId];
-  return t && i != null && TEAM_DEFS[i] && i < t.count ? { ...TEAM_DEFS[i], index: i } : null;
-}
-
-export interface TeamTotal extends TeamDef {
-  index: number;
+export interface TeamTotal extends TeamInfo {
   total: number;
   members: Player[];
 }
 
-/** Team standings: a team's score is the sum of its members' scores. Best first. */
-export function teamTotals(players: Player[], settings: RoomSettings | undefined): TeamTotal[] {
-  const t = teamsOf(settings);
-  if (!t) return [];
-  return Array.from({ length: t.count }, (_, index) => {
-    const members = players.filter((p) => t.assign[p.id] === index);
-    return { ...TEAM_DEFS[index], index, members, total: members.reduce((s, p) => s + p.score, 0) };
-  }).sort((a, b) => b.total - a.total);
+/** Team standings: a team's night total is the sum of its members' cumulative scores. Best first. */
+export function teamTotals(players: Player[], teams: Team[]): TeamTotal[] {
+  return teams
+    .map((t, index) => {
+      const members = players.filter((p) => p.team_id === t.id);
+      return { ...t, index, emoji: teamEmoji(index), members, total: members.reduce((s, p) => s + p.score, 0) };
+    })
+    .sort((a, b) => b.total - a.total || a.index - b.index);
 }
 
-/** Deal everyone onto `count` teams as evenly as possible. */
-export function balancedAssign(players: Player[], count: number): Record<string, number> {
-  const out: Record<string, number> = {};
+/** Deal players onto teams as evenly as possible (odd counts: the first teams get one extra). */
+export function balancedAssign(players: Player[], teams: Team[]): Record<string, string> {
+  const out: Record<string, string> = {};
   shuffle(players).forEach((p, i) => {
-    out[p.id] = i % count;
+    out[p.id] = teams[i % teams.length].id;
   });
   return out;
 }
 
-/** Put players who have no team (late joiners) on the smallest team. Returns null if nothing changed. */
-export function assignNewcomers(players: Player[], t: TeamsSettings): Record<string, number> | null {
-  const assign: Record<string, number> = {};
-  for (const p of players) if (t.assign[p.id] != null && t.assign[p.id] < t.count) assign[p.id] = t.assign[p.id];
-  const sizes = Array.from({ length: t.count }, (_, i) => Object.values(assign).filter((v) => v === i).length);
-  let changed = false;
-  for (const p of players) {
-    if (assign[p.id] != null) continue;
-    const smallest = sizes.indexOf(Math.min(...sizes));
-    assign[p.id] = smallest;
-    sizes[smallest]++;
-    changed = true;
-  }
-  return changed ? assign : null;
+/** First default name / color not already used by a team in this room. */
+export function nextTeamLook(teams: Team[]): { name: string; color: string } {
+  const names = new Set(teams.map((t) => t.name));
+  const colors = new Set(teams.map((t) => t.color.toLowerCase()));
+  const name = TEAMS.names.find((n) => !names.has(n)) ?? `Team ${teams.length + 1}`;
+  const color = TEAMS.colors.find((c) => !colors.has(c.toLowerCase())) ?? TEAMS.colors[teams.length % TEAMS.colors.length];
+  return { name, color };
+}
+
+/** Team a late joiner should land on: the smallest. */
+export function smallestTeam(players: Player[], teams: Team[]): Team {
+  const size = (t: Team) => players.filter((p) => p.team_id === t.id).length;
+  return teams.reduce((best, t) => (size(t) < size(best) ? t : best), teams[0]);
 }

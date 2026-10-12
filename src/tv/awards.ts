@@ -1,8 +1,8 @@
 import { CAP_VOTE_POINTS, REASON, WF_FOOLED_POINTS } from '../games/reasons';
 import { GAMES } from '../games/registry';
 import { supabase } from '../lib/supabase';
-import { teamsOf, teamTotals } from '../lib/teams';
-import type { Player, RoomSettings } from '../lib/types';
+import { teamTotals } from '../lib/teams';
+import type { Player, Team } from '../lib/types';
 
 export interface Award {
   id: string;
@@ -53,7 +53,7 @@ interface SubRow {
 export async function computeNight(
   roomId: string,
   players: Player[],
-  settings: RoomSettings,
+  teamList: Team[],
 ): Promise<{ awards: Award[]; recap: Recap }> {
   const ids = new Set(players.map((p) => p.id));
   const byId = new Map(players.map((p) => [p.id, p]));
@@ -145,7 +145,7 @@ export async function computeNight(
   if (bestTalent?.text) moments.push({ emoji: '🎭', title: 'Top talent', text: `${bestTalent.text} (${bestTalent.avg.toFixed(1)}★)`, by: bestTalent.by });
 
   // Team champions, when teams are on.
-  const teams = teamTotals(players, settings);
+  const teams = teamTotals(players, teamList);
   if (teams.length && teams[0].total > 0) {
     out.unshift({
       id: 'team', title: 'Team Champions', emoji: teams[0].emoji, playerIds: teams[0].members.map((m) => m.id),
@@ -165,7 +165,7 @@ export async function computeNight(
     players: ranked.map((p) => ({ name: p.name, emoji: p.emoji, color: p.color, score: p.score })),
     awards: out.map((a) => ({ title: a.title, emoji: a.emoji, names: a.playerIds.map(nameOf), detail: a.detail })),
     moments,
-    teams: teamsOf(settings)
+    teams: teamList.length
       ? teams.map((t) => ({ name: t.name, emoji: t.emoji, color: t.color, total: t.total, members: t.members.map((m) => m.name) }))
       : [],
     games: [...new Set((runs.data ?? []).map((r) => GAMES[r.game_type]?.title).filter((t): t is string => Boolean(t)))],

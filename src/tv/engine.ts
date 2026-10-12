@@ -5,8 +5,10 @@ import type { GameCtx, GameModule, NewSub, StepOptions } from '../games/types';
 import { serverNow } from '../lib/clock';
 import type { RoomStore } from '../lib/roomStore';
 import { errorCode, supabase } from '../lib/supabase';
-import type { GameRun, Player, Room, RoomSettings, Submission, Vote } from '../lib/types';
+import type { GameRun, Player, Room, RoomSettings, Submission, Team, Vote } from '../lib/types';
 import { computeNight } from './awards';
+import { TEAMS } from '../config';
+import { balancedAssign, nextTeamLook, smallestTeam } from '../lib/teams';
 
 export interface RunSummary {
   id: string;
@@ -482,6 +484,75 @@ export class HostEngine {
 
   backToHub = () => this.act(() => this.goHub(), 'advance');
 
+  // ---------------------------------------------------------------- teams
+  private get teams(): Team[] {
+    return this.store.getSnapshot().teams;
+  }
+
+  private async setPlayerTeam(playerId: string, teamId: string | null) {
+    const { data, error } = await supabase.from('players').update({ team_id: teamId }).eq('id', playerId).select().single();
+    if (error) throw error;
+    this.store.applyPlayer(data as Player);
+  }
+
+  /** Randomly deal everyone onto the given teams, as evenly as possible. */
+  private async dealTeams(teams: Team[]) {
+    if (!teams.length) return;
+    const assign = balancedAssign(this.players, teams);
+    await Promise.all(this.players.map((p) => this.setPlayerTeam(p.id, assign[p.id])));
+  }
+
+  /** Create or trim teams to `count` (2-4) and re-deal everyone. Existing teams keep their names. */
+  setTeamCount = (count: number) =>
+    this.act(async () => {
+      const n = Math.max(2, Math.min(TEAMS.maxCount, Math.round(count)));
+      let teams = [...this.teams];
+      if (teams.length > n) {
+        const { error } = await supabase.from('teams').delete().in('id', teams.slice(n).map((t) => t.id));
+        if (error) throw error;
+        teams = teams.slice(0, n);
+      }
+      while (teams.length < n) {
+        const { data, error } = await supabase.from('teams').insert({ room_id: this.room.id, ...nextTeamLook(teams) }).select().single();
+        if (error) throw error;
+        teams.push(data as Team);
+      }
+      this.store.applyTeams(teams);
+      await this.dealTeams(this.teams);
+    });
+
+  rerollTeams = () => this.act(() => this.dealTeams(this.teams));
+
+  movePlayer = (playerId: string, teamId: string | null) => this.act(() => this.setPlayerTeam(playerId, teamId));
+
+  renameTeam = (teamId: string, name: string) =>
+    this.act(async () => {
+      const clean = name.trim().slice(0, 30);
+      if (!clean) return;
+      const { data, error } = await supabase.from('teams').update({ name: clean }).eq('id', teamId).select().single();
+      if (error) throw error;
+      this.store.applyTeams(this.teams.map((t) => (t.id === teamId ? (data as Team) : t)));
+    });
+
+  clearTeams = () =>
+    this.act(async () => {
+      const { error } = await supabase.from('teams').delete().eq('room_id', this.room.id);
+      if (error) throw error;
+      this.store.applyTeams([]);
+      for (const p of this.players) this.store.applyPlayer({ ...p, team_id: null });
+    });
+
+  /** Late joiners (or players whose team was removed) land on the smallest team. */
+  assignNewcomers = () =>
+    this.act(async () => {
+      const teams = this.teams;
+      if (!teams.length) return;
+      for (const p of this.players) {
+        if (p.team_id && teams.some((t) => t.id === p.team_id)) continue;
+        await this.setPlayerTeam(p.id, smallestTeam(this.players, teams).id);
+      }
+    });
+
   /** Run a host-only action defined by the current game (e.g. rule on a challenge). */
   gameAction = (name: string, payload: Record<string, unknown> = {}) =>
     this.act(async () => {
@@ -495,7 +566,7 @@ export class HostEngine {
       if (run && run.status !== 'done' && run.status !== 'exited') {
         await this.patchRun({ status: 'exited', ended_at: new Date().toISOString() });
       }
-      const { awards, recap } = await computeNight(this.room.id, this.players, this.room.settings);
+      const { awards, recap } = await computeNight(this.room.id, this.players, this.teams);
       await this.patchRoom({
         phase: 'awards', current_game: null, current_run_id: null, round: 0, rounds_total: 0,
         state: { awards, stage: 0 }, settings: { ...this.room.settings, recap }, ...CLEAR_TIMER,

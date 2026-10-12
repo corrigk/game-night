@@ -9,13 +9,15 @@ import { Avatar, PlayerChip } from '../components/PlayerChip';
 import { GAME_LIST, GAMES } from '../games/registry';
 import type { GameModule } from '../games/types';
 import { play } from '../lib/sound';
-import type { Player, Room } from '../lib/types';
+import type { Player, Room, Team } from '../lib/types';
 import type { Award } from './awards';
 import type { EngineSnapshot, HostEngine } from './engine';
 
 interface Props {
   room: Room;
   players: Player[];
+  teams: Team[];
+  openTeams: () => void;
   engine: HostEngine;
   engineSnap: EngineSnapshot;
   online: Set<string>;
@@ -114,7 +116,7 @@ function JoinBadge({ code }: { code: string }) {
 }
 
 // ----------------------------------------------------------------- hub
-function Hub({ room, players, engine, engineSnap }: Props) {
+function Hub({ room, players, teams, openTeams, engine, engineSnap }: Props) {
   const [picked, setPicked] = useState<GameModule | null>(null);
   const plays = (id: string) => engineSnap.runs.filter((r) => r.game_type === id && (r.status === 'done' || r.status === 'exited')).length;
 
@@ -142,12 +144,13 @@ function Hub({ room, players, engine, engineSnap }: Props) {
           })}
         </div>
         <div className="row gap center">
+          <button className="btn btn-lg" onClick={openTeams}>👥 Teams{teams.length ? ` (${teams.length})` : ''}</button>
           <button className="btn btn-lg" onClick={() => void engine.showAwards()}>🏆 Finish the night: Final Awards</button>
         </div>
         <p className="tv-footer dim">Host: click a game to start it</p>
       </div>
       <aside className="hub-side card">
-        <TeamStandings players={players} settings={room.settings} />
+        <TeamStandings players={players} teams={teams} />
         <Leaderboard players={players} title="Tonight" />
       </aside>
       <JoinBadge code={room.code} />
@@ -265,7 +268,7 @@ function Play({ room, players, engine, engineSnap }: Props) {
 }
 
 // ----------------------------------------------------------------- results
-function Results({ room, players }: Props) {
+function Results({ room, players, teams }: Props) {
   const game = room.current_game ? GAMES[room.current_game] : undefined;
   const standings = (room.state.standings as { playerId: string; points: number }[] | undefined) ?? [];
   const map = new Map(players.map((p) => [p.id, p]));
@@ -297,7 +300,7 @@ function Results({ room, players }: Props) {
         </p>
       </div>
       <aside className="hub-side card">
-        <TeamStandings players={players} settings={room.settings} />
+        <TeamStandings players={players} teams={teams} />
         <Leaderboard players={players} title="Tonight" />
       </aside>
     </div>
@@ -305,7 +308,7 @@ function Results({ room, players }: Props) {
 }
 
 // ----------------------------------------------------------------- awards
-function Awards({ room, players }: Props) {
+function Awards({ room, players, teams }: Props) {
   const awards = (room.state.awards as Award[] | undefined) ?? [];
   const stage = Number(room.state.stage ?? 0);
   const map = new Map(players.map((p) => [p.id, p]));
@@ -334,9 +337,9 @@ function Awards({ room, players }: Props) {
             ),
           )}
         </div>
-        {teamTotals(players, room.settings).length > 0 && (
+        {teamTotals(players, teams).length > 0 && (
           <p className="lead">
-            🏅 Winning team: <b>{teamTotals(players, room.settings)[0].emoji} {teamTotals(players, room.settings)[0].name}</b>
+            🏅 Winning team: <b>{teamTotals(players, teams)[0].emoji} {teamTotals(players, teams)[0].name}</b>
           </p>
         )}
         <div className="podium-rest">
