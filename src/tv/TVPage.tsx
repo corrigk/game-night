@@ -4,6 +4,7 @@ import { HostGate } from '../components/HostGate';
 import { syncClock } from '../lib/clock';
 import { usePresence } from '../lib/presence';
 import { useRoomStore } from '../lib/roomStore';
+import { assignNewcomers, teamsOf } from '../lib/teams';
 import { unlockAudio } from '../lib/sound';
 import { load, save } from '../lib/storage';
 import { errorCode, supabase } from '../lib/supabase';
@@ -100,6 +101,16 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
     return () => window.clearTimeout(t);
   }, [engine, onlineKey, snap?.players.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Teams: late joiners land on the smallest team.
+  const teamsKey = JSON.stringify(snap?.room?.settings.teams ?? null) + String(snap?.players.length ?? 0);
+  useEffect(() => {
+    if (!engine || !snap?.room) return;
+    const t = teamsOf(snap.room.settings);
+    if (!t) return;
+    const next = assignNewcomers(snap.players, t);
+    if (next) void engine.updateSettings({ teams: { ...t, assign: next } });
+  }, [engine, teamsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keyboard shortcuts: H drawer, Space next, + add 15s.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -110,6 +121,8 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'h' || e.key === 'H') {
         setDrawer((d) => !d);
+      } else if (e.key === 'p' || e.key === 'P') {
+        void engine?.togglePause();
       } else if (e.key === 'q' || e.key === 'Q') {
         setBigQr((v) => !v);
       } else if (e.key === 'Escape') {

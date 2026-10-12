@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
 import { downscale, randomId } from '../../lib/image';
 import { draw, shuffle } from '../../lib/random';
+import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
 import { errorCode, supabase } from '../../lib/supabase';
 import type { Player, Submission } from '../../lib/types';
 import { REASON } from '../reasons';
@@ -44,6 +45,7 @@ interface Result extends Finalist {
   points: number;
 }
 interface PromptRow {
+  id?: string;
   type: Info['type'];
   location: string;
   prompt: string | null;
@@ -195,15 +197,15 @@ export const zillowHunt: GameModule = {
   status: 'ready',
 
   async setup(ctx) {
-    const { data } = await supabase.from('zillow_prompts').select('type, location, prompt, filters');
-    const rows = ((data?.length ? data : FALLBACK) as PromptRow[]).map((r) => ({ ...r }));
-    await ctx.saveRun({ deck: shuffle(rows), cursor: 0, dq: [] });
+    const rows = await loadBank<BankRow & PromptRow>('zillow_prompts');
+    await ctx.saveRun({ deck: rows.length ? leastUsed(rows) : FALLBACK, cursor: 0, dq: [] });
   },
 
   async startRound(ctx) {
     const st = ctx.run.state as { deck?: PromptRow[]; cursor?: number };
     const d = draw(st.deck?.length ? st.deck : FALLBACK, st.cursor ?? 0);
-    await ctx.saveRun({ deck: d.deck, cursor: d.cursor, dq: [] });
+    markUsed('zillow_prompts', [d.item.id]);
+    await ctx.saveRun({ deck: d.deck, cursor: d.cursor, dq: [], cur: d.item.id ? { table: 'zillow_prompts', id: d.item.id } : null });
     await ctx.setStep('announce', { info: buildInfo(d.item) }, { seconds: 10 });
   },
 

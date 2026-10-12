@@ -37,6 +37,7 @@ Dream Home Hunter, Star Performer, Participation Trophy).
    1. `20261011000000_init.sql`
    2. `20261011000100_fact_aliases.sql`
    3. `20261011000200_talents.sql`
+   4. `20261011000300_usage_and_veto.sql`
 
    (Or with the Supabase CLI: `supabase link` then `supabase db push`.) Running a file twice
    fails harmlessly with "already exists"; just skip it.
@@ -98,6 +99,15 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
 
 ---
 
+## Extras
+
+- **Pause** (`P`): freezes the timer and blocks answers until resumed.
+- **Skip & never show again** (drawer): retires the current prompt, photo or talent. Restore from `/admin` ("retired ↺").
+- **Used counts:** games deal the least-used prompts first, so repeat nights stay fresh. Reset in `/admin`.
+- **Teams** (drawer): 2-4 teams; a team scores the sum of its members. Voting is unchanged.
+- **Encore** (Talent Show): audience taps 👏 for +50 each.
+- **Night recap:** after Final Awards the TV shows a QR for `/recap?code=XXXX`, with standings, awards, best moments, and a save-as-image button.
+
 ## Running a game night
 
 1. Open `/` on the TV computer. Enter the host passcode once (it's remembered on that browser).
@@ -122,6 +132,7 @@ If the TV refreshes, it resumes the same room and the same step.
 | `Space` | Next (advance the game)      |
 | `+`     | Add 15 seconds to the timer  |
 | `Q`     | Full-screen join QR (any time, for latecomers) |
+| `P`     | Pause / resume the timer |
 | `Esc`   | Close a dialog               |
 
 ### Host drawer

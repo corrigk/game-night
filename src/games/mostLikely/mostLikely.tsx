@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
-import { errorCode, supabase } from '../../lib/supabase';
+import { leastUsed, loadBank, markUsed } from '../../lib/bank';
+import { errorCode } from '../../lib/supabase';
 import type { Player } from '../../lib/types';
 import type { GameCtx, GameModule, PhoneGameProps, TVGameProps } from '../types';
 
@@ -19,6 +20,11 @@ const FALLBACK = [
   'Most likely to cry at a commercial',
   'Most likely to adopt 12 cats',
 ];
+
+interface Prompt {
+  id?: string;
+  text: string;
+}
 
 interface RevealState {
   counts: Record<string, number>;
@@ -68,21 +74,23 @@ export const mostLikely: GameModule = {
   status: 'ready',
 
   async setup(ctx) {
-    const { data } = await supabase.from('most_likely_prompts').select('text');
-    const texts = (data ?? []).map((r) => String(r.text)).filter(Boolean);
-    await ctx.saveRun({ deck: shuffle(texts.length ? texts : FALLBACK), cursor: 0 });
+    const rows = await loadBank<{ id: string; text: string; times_used?: number }>('most_likely_prompts');
+    const deck = rows.length ? leastUsed(rows).map((r) => ({ id: r.id, text: String(r.text) })) : FALLBACK.map((text) => ({ text }));
+    await ctx.saveRun({ deck, cursor: 0 });
   },
 
   async startRound(ctx) {
-    const state = ctx.run.state as { deck?: string[]; cursor?: number };
-    let deck = state.deck?.length ? state.deck : FALLBACK;
+    const state = ctx.run.state as { deck?: Prompt[]; cursor?: number };
+    let deck: Prompt[] = state.deck?.length ? state.deck : FALLBACK.map((text) => ({ text }));
     let cursor = state.cursor ?? 0;
     if (cursor >= deck.length) {
       deck = shuffle(deck); // more rounds than prompts: reshuffle and go again
       cursor = 0;
     }
-    await ctx.saveRun({ deck, cursor: cursor + 1 });
-    await ctx.setStep('vote', { prompt: deck[cursor] }, { seconds: VOTE_SECONDS, vote: [KIND] });
+    const item = deck[cursor];
+    markUsed('most_likely_prompts', [item.id]);
+    await ctx.saveRun({ deck, cursor: cursor + 1, cur: item.id ? { table: 'most_likely_prompts', id: item.id } : null });
+    await ctx.setStep('vote', { prompt: item.text }, { seconds: VOTE_SECONDS, vote: [KIND] });
   },
 
   async next(ctx) {

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
 import { draw, shuffle } from '../../lib/random';
+import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
 import { errorCode, supabase } from '../../lib/supabase';
 import type { Player } from '../../lib/types';
 import { CAP_VOTE_POINTS, CAP_WIN_BONUS, REASON } from '../reasons';
@@ -21,6 +22,7 @@ const VOTE_SECONDS = 35;
 const MAX_LEN = 80;
 
 interface ImageRef {
+  id?: string;
   pool: 'generic' | 'friends';
   url?: string | null;
   storage_path?: string | null;
@@ -57,6 +59,7 @@ interface RunState {
   gi?: number;
   fi?: number;
   cards?: string[];
+  cardIds?: Record<string, string>;
   ci?: number;
   hands?: Record<string, string[]>;
 }
@@ -130,6 +133,11 @@ async function reveal(ctx: GameCtx) {
     }
   }
   await ctx.saveRun({ hands });
+  const cardIds = st.cardIds ?? {};
+  markUsed(
+    'caption_cards',
+    ctx.roundSubs('caption').filter((s) => s.payload.source === 'card').map((s) => cardIds[String(s.payload.text)]),
+  );
   await ctx.setStep('reveal', { imageUrl: ctx.room.state.imageUrl, items, winners });
 }
 
@@ -150,19 +158,21 @@ export const captionThis: GameModule = {
 
   async setup(ctx) {
     const [imgs, cards] = await Promise.all([
-      supabase.from('caption_images').select('url, storage_path, pool, credit'),
-      supabase.from('caption_cards').select('text'),
+      loadBank<BankRow & ImageRef>('caption_images'),
+      loadBank<BankRow & { text: string }>('caption_cards'),
     ]);
-    const all = (imgs.data ?? []) as ImageRef[];
-    const generic = all.filter((i) => i.pool === 'generic');
-    const friends = all.filter((i) => i.pool === 'friends');
-    const texts = (cards.data ?? []).map((c) => String(c.text)).filter(Boolean);
+    const generic = leastUsed(imgs.filter((i) => i.pool === 'generic'));
+    const friends = leastUsed(imgs.filter((i) => i.pool === 'friends'));
+    const ordered = leastUsed(cards).filter((c) => String(c.text).trim());
+    const cardIds: Record<string, string> = {};
+    for (const c of ordered) cardIds[String(c.text)] = c.id;
     await ctx.saveRun({
-      generic: shuffle(generic.length ? generic : BUILTIN_IMAGES),
-      friends: shuffle(friends),
+      generic: generic.length ? generic : BUILTIN_IMAGES,
+      friends,
       gi: 0,
       fi: 0,
-      cards: shuffle(texts.length >= HAND_SIZE ? texts : BUILTIN_CARDS),
+      cards: ordered.length >= HAND_SIZE ? ordered.map((c) => String(c.text)) : shuffle(BUILTIN_CARDS),
+      cardIds,
       ci: 0,
       hands: {},
     });
@@ -182,6 +192,8 @@ export const captionThis: GameModule = {
       image = d.item;
       await ctx.saveRun({ generic: d.deck, gi: d.cursor });
     }
+    markUsed('caption_images', [image.id]);
+    await ctx.saveRun({ cur: image.id ? { table: 'caption_images', id: image.id } : null });
     const imageUrl = await resolveUrl(image);
     await deal(ctx); // rows are written before the step so phones find them on their first fetch
     await ctx.setStep('write', { imageUrl, maxLen: MAX_LEN }, { seconds: WRITE_SECONDS, submit: ['caption'] });

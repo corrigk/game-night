@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
 import { draw, shuffle } from '../../lib/random';
-import { errorCode, supabase } from '../../lib/supabase';
+import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
+import { errorCode } from '../../lib/supabase';
 import { tooClose } from '../../lib/textMatch';
 import type { Player } from '../../lib/types';
 import { REASON, WF_FOOLED_POINTS, WF_TRUTH_POINTS } from '../reasons';
@@ -17,6 +18,7 @@ import type { GameCtx, GameModule, PhoneGameProps, TVGameProps } from '../types'
  */
 
 interface Fact {
+  id?: string;
   prompt: string;
   answer: string;
   aliases: string[];
@@ -98,6 +100,13 @@ async function showReveal(ctx: GameCtx, items: Item[], idx: number) {
 }
 
 async function awardRound(ctx: GameCtx, items: Item[]) {
+  // Keep the night's best lie for the recap.
+  const bestFake = items.filter((i) => !i.real).sort((a, b) => b.pickers.length - a.pickers.length)[0];
+  if (bestFake?.pickers.length) {
+    const history = [...(((ctx.run.state as { history?: unknown[] }).history) ?? [])];
+    history.push({ prompt: currentFact(ctx).prompt, text: bestFake.text, authorId: bestFake.authorId, fooled: bestFake.pickers.length });
+    await ctx.saveRun({ history });
+  }
   const events: { playerId: string; points: number; reason: string }[] = [];
   for (const it of items) {
     if (it.real) {
@@ -125,21 +134,23 @@ export const weirdFacts: GameModule = {
   status: 'ready',
 
   async setup(ctx) {
-    const { data } = await supabase.from('facts').select('prompt, answer, aliases, blurb, kind');
-    const facts: Fact[] = (data ?? []).map((r) => ({
+    const rows = await loadBank<BankRow & Record<string, unknown>>('facts');
+    const facts: Fact[] = leastUsed(rows).map((r) => ({
+      id: r.id,
       prompt: String(r.prompt),
       answer: String(r.answer),
       aliases: (r.aliases as string[] | null) ?? [],
       blurb: String(r.blurb ?? ''),
       kind: r.kind === 'phrase' ? 'phrase' : 'short',
     }));
-    await ctx.saveRun({ deck: shuffle(facts.length ? facts : FALLBACK), cursor: 0 });
+    await ctx.saveRun({ deck: facts.length ? facts : FALLBACK, cursor: 0 });
   },
 
   async startRound(ctx) {
     const st = ctx.run.state as { deck?: Fact[]; cursor?: number };
     const { item, deck, cursor } = draw(st.deck?.length ? st.deck : FALLBACK, st.cursor ?? 0);
-    await ctx.saveRun({ deck, cursor, current: item, realId: null });
+    markUsed('facts', [item.id]);
+    await ctx.saveRun({ deck, cursor, current: item, realId: null, cur: item.id ? { table: 'facts', id: item.id } : null });
     await ctx.setStep(
       'write',
       { prompt: item.prompt, kind: item.kind, maxLen: MAX_LEN[item.kind], rejected: {} },

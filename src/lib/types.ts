@@ -12,7 +12,7 @@ export interface RoomSettings {
 /** Public, phone-visible state for the current step. Never put secrets here. */
 export interface RoomState {
   step?: string;
-  accept?: { submit?: string[]; vote?: string[]; track?: 'submit' | 'vote' };
+  accept?: { submit?: string[]; vote?: string[]; track?: 'submit' | 'vote'; count?: string[] };
   /** Player ids that have submitted / voted this step (for "waiting on…" UI). */
   done?: string[];
   [key: string]: unknown;

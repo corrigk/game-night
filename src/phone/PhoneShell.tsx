@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Countdown } from '../components/Countdown';
 import { Leaderboard } from '../components/Leaderboard';
+import { TeamStandings } from '../components/TeamStandings';
+import { teamOf } from '../lib/teams';
 import { Modal } from '../components/Modal';
 import { Avatar, PlayerChip } from '../components/PlayerChip';
 import { GAMES } from '../games/registry';
@@ -57,6 +59,7 @@ export function PhoneShell({
   const [editing, setEditing] = useState(false);
   const { mySubs, myVotes, refresh } = useMine(room, me);
   const game = room.current_game ? GAMES[room.current_game] : undefined;
+  const team = teamOf(room.settings, me.id);
 
   const api: PhoneApi = useMemo(
     () => ({
@@ -92,6 +95,7 @@ export function PhoneShell({
         <button className="phone-me" onClick={() => setEditing(true)} aria-label="Change emoji or color">
           <Avatar player={me} size="md" />
           <span className="phone-me-name">{me.name}</span>
+          {team && <span className="team-pill" style={{ background: team.color }} title={team.name}>{team.emoji}</span>}
         </button>
         <div className="phone-header-right">
           {room.phase === 'play' && !room.state.hideTimer && (
@@ -103,6 +107,7 @@ export function PhoneShell({
       {!live && <div className="phone-offline">Reconnecting…</div>}
 
       <main className="phone-main">
+        {room.phase === 'play' && Boolean(room.state.paused) && <div className="pause-overlay pause-phone">⏸ Paused by the host</div>}
         {room.phase === 'lobby' && (
           <div className="phone-center center-stack">
             <PlayerChip player={me} size="xl" />
@@ -116,6 +121,7 @@ export function PhoneShell({
             <h2 className="center">The host is picking a game…</h2>
             {rank > 0 && players.some((p) => p.score > 0) && <p className="center lead">You're #{rank}</p>}
             <div className="card">
+              <TeamStandings players={players} settings={room.settings} />
               <Leaderboard players={players} highlightId={me.id} title="Tonight" />
             </div>
           </div>
@@ -173,6 +179,9 @@ function PhoneAwards({ room, me, rank }: { room: Room; me: Player; rank: number 
         </div>
       )}
       <p className="dim">Look at the TV!</p>
+      {stage > awards.length && (
+        <a className="btn btn-primary btn-lg" href={`/recap?code=${room.code}`}>📸 Open the night recap</a>
+      )}
     </div>
   );
 }

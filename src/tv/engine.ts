@@ -6,7 +6,7 @@ import { serverNow } from '../lib/clock';
 import type { RoomStore } from '../lib/roomStore';
 import { errorCode, supabase } from '../lib/supabase';
 import type { GameRun, Player, Room, RoomSettings, Submission, Vote } from '../lib/types';
-import { computeAwards } from './awards';
+import { computeNight } from './awards';
 
 export interface RunSummary {
   id: string;
@@ -262,7 +262,12 @@ export class HostEngine {
   private async setStep(step: string, data: Record<string, unknown>, opts: StepOptions) {
     const accept =
       opts.submit || opts.vote
-        ? { submit: opts.submit ?? [], vote: opts.vote ?? [], track: opts.track ?? (opts.submit?.length ? 'submit' : 'vote') }
+        ? {
+            submit: opts.submit ?? [],
+            vote: opts.vote ?? [],
+            track: opts.track ?? (opts.submit?.length ? 'submit' : 'vote'),
+            ...(opts.count ? { count: opts.count } : {}),
+          }
         : undefined;
     await this.patchRoom({
       state: { ...data, step, stepAt: serverNow(), done: [], ...(accept ? { accept } : {}) },
@@ -350,6 +355,7 @@ export class HostEngine {
   next = () =>
     this.act(async () => {
       const room = this.room;
+      if (room.state.paused) return void (await this.resumeInline());
       switch (room.phase) {
         case 'lobby':
           await this.patchRoom({ phase: 'hub' });
@@ -366,7 +372,7 @@ export class HostEngine {
           break;
         case 'awards': {
           const st = this.room.state;
-          const total = ((st.awards as unknown[] | undefined) ?? []).length;
+          const total = ((st.awards as unknown[] | undefined) ?? []).length + 1; // +1: the recap QR
           const stage = Number(st.stage ?? 0);
           if (stage < total) await this.patchRoom({ state: { ...st, stage: stage + 1 } });
           else await this.goHub();
@@ -377,8 +383,43 @@ export class HostEngine {
       }
     }, 'advance');
 
-  skip = () =>
+  skip = () => this.act(() => this.skipInline(), 'advance');
+
+  /** Retire the current prompt/photo/talent for good, then skip to a fresh one. */
+  vetoSkip = () =>
     this.act(async () => {
+      const cur = this.snap.run?.state.cur as { table: string; id: string } | null | undefined;
+      if (cur) {
+        const { error } = await supabase.from(cur.table).update({ vetoed: true }).eq('id', cur.id);
+        if (error) throw error;
+      }
+      await this.skipInline();
+    }, 'advance');
+
+  togglePause = () =>
+    this.act(async () => {
+      const r = this.room;
+      if (r.state.paused) return this.resumeInline();
+      if (r.phase !== 'play') return;
+      const left = r.timer_ends_at ? Math.max(0, Date.parse(r.timer_ends_at) - serverNow()) : 0;
+      await this.patchRoom({
+        state: { ...r.state, paused: true, pausedLeft: left, pausedAccept: r.state.accept ?? null, accept: undefined },
+        timer_ends_at: null,
+      });
+    });
+
+  private async resumeInline() {
+    const r = this.room;
+    const { paused: _p, pausedLeft, pausedAccept, ...rest } = r.state as Record<string, unknown>;
+    void _p;
+    const left = Number(pausedLeft ?? 0);
+    await this.patchRoom({
+      state: { ...rest, ...(pausedAccept ? { accept: pausedAccept } : {}) } as Room['state'],
+      timer_ends_at: left > 0 ? new Date(serverNow() + left).toISOString() : null,
+    });
+  }
+
+  private skipInline = async () => {
       const room = this.room;
       const mod = this.module;
       if (room.phase !== 'play' || !mod) return void (await this.nextInline());
@@ -394,7 +435,7 @@ export class HostEngine {
         });
       }
       await this.beginRound(room.round);
-    }, 'advance');
+  };
 
   /** Next, for use inside an action that already holds the queue. */
   private async nextInline() {
@@ -412,6 +453,10 @@ export class HostEngine {
   addTime = (seconds = 15) =>
     this.act(async () => {
       const r = this.room;
+      if (r.state.paused) {
+        await this.patchRoom({ state: { ...r.state, pausedLeft: Number(r.state.pausedLeft ?? 0) + seconds * 1000 } });
+        return;
+      }
       if (!r.timer_ends_at) return;
       const base = Math.max(Date.parse(r.timer_ends_at), serverNow());
       await this.patchRoom({
@@ -450,10 +495,10 @@ export class HostEngine {
       if (run && run.status !== 'done' && run.status !== 'exited') {
         await this.patchRun({ status: 'exited', ended_at: new Date().toISOString() });
       }
-      const awards = await computeAwards(this.room.id, this.players);
+      const { awards, recap } = await computeNight(this.room.id, this.players, this.room.settings);
       await this.patchRoom({
         phase: 'awards', current_game: null, current_run_id: null, round: 0, rounds_total: 0,
-        state: { awards, stage: 0 }, ...CLEAR_TIMER,
+        state: { awards, stage: 0 }, settings: { ...this.room.settings, recap }, ...CLEAR_TIMER,
       });
       await this.loadRuns();
     }, 'advance');
@@ -484,7 +529,7 @@ export class HostEngine {
     const run = this.snap.run;
     const mod = this.module;
     if (!room || room.phase !== 'play' || !run || run.id !== room.current_run_id || !mod) return;
-    if (this.pendingKeys.get('advance')) return;
+    if (room.state.paused || this.pendingKeys.get('advance')) return;
 
     // 1. Step timer expired.
     const ends = room.timer_ends_at;
@@ -523,7 +568,7 @@ export class HostEngine {
       const track = acc.track ?? (acc.submit?.length ? 'submit' : 'vote');
       if (track === 'submit') {
         for (const s of this.snap.subs) {
-          if (s.round === room.round && s.player_id && acc.submit?.includes(s.kind)) ids.add(s.player_id);
+          if (s.round === room.round && s.player_id && (acc.count ?? acc.submit)?.includes(s.kind)) ids.add(s.player_id);
         }
       } else {
         for (const v of this.snap.votes) {

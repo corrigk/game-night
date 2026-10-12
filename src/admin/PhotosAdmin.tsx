@@ -8,6 +8,8 @@ interface Row {
   storage_path: string | null;
   pool: 'generic' | 'friends';
   credit: string | null;
+  vetoed?: boolean | null;
+  times_used?: number | null;
   preview?: string;
 }
 
@@ -69,6 +71,12 @@ export function PhotosAdmin() {
     await reload();
   };
 
+  const restore = async (r: Row) => {
+    const { error } = await supabase.from('caption_images').update({ vetoed: false }).eq('id', r.id);
+    if (error) return setMsg(error.message);
+    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, vetoed: false } : x)));
+  };
+
   const remove = async (r: Row) => {
     if (r.storage_path) await supabase.storage.from('caption-images').remove([r.storage_path]);
     const { error } = await supabase.from('caption_images').delete().eq('id', r.id);
@@ -111,6 +119,8 @@ export function PhotosAdmin() {
             {r.preview ? <img src={r.preview} alt="" loading="lazy" /> : <div className="spinner" />}
             <figcaption>
               <span className={`pill pill-${r.pool}`}>{r.pool}</span>
+              <span className="dim small">{Number(r.times_used ?? 0)}×</span>
+              {r.vetoed && <button className="btn btn-sm btn-danger" onClick={() => void restore(r)}>retired ↺</button>}
               <button className="btn btn-sm btn-ghost" onClick={() => void remove(r)} aria-label="Delete photo">✕</button>
             </figcaption>
           </figure>

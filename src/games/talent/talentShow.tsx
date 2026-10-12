@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { PlayerChip } from '../../components/PlayerChip';
 import { shuffle } from '../../lib/random';
-import { errorCode, supabase } from '../../lib/supabase';
+import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
+import { errorCode } from '../../lib/supabase';
 import { REASON } from '../reasons';
 import type { GameCtx, GameModule, PhoneGameProps, TVGameProps } from '../types';
 
@@ -17,6 +18,7 @@ const PREP_SECONDS = 120;
 const PERFORM_SECONDS = 60;
 const RATE_SECONDS = 20;
 const POINTS_PER_STAR = 100;
+const ENCORE_POINTS = 50;
 
 const FALLBACK_TALENTS = [
   'Juggle three household objects while reciting the alphabet backwards',
@@ -40,6 +42,8 @@ const FALLBACK_TALENTS = [
 interface RunState {
   order?: string[];
   talents?: Record<string, string>;
+  talentIds?: Record<string, string>;
+  spare?: { id?: string; text: string }[];
 }
 interface Reveal {
   performerId: string;
@@ -47,6 +51,7 @@ interface Reveal {
   avg: number;
   count: number;
   points: number;
+  encores: number;
 }
 
 const performerAt = (ctx: GameCtx, round: number) => {
@@ -62,7 +67,10 @@ const performerAt = (ctx: GameCtx, round: number) => {
 async function announce(ctx: GameCtx) {
   const performerId = performerAt(ctx, ctx.room.round);
   if (!performerId) return ctx.endRound();
-  const talent = (ctx.run.state as RunState).talents?.[performerId] ?? '';
+  const st = ctx.run.state as RunState;
+  const talent = st.talents?.[performerId] ?? '';
+  const id = st.talentIds?.[performerId];
+  await ctx.saveRun({ cur: id ? { table: 'talents', id } : null });
   await ctx.setStep('announce', { performerId, talent });
 }
 
@@ -82,21 +90,19 @@ export const talentShow: GameModule = {
   status: 'ready',
 
   async setup(ctx) {
-    let talents: string[] = [];
-    try {
-      const { data } = await supabase.from('talents').select('text');
-      talents = (data ?? []).map((r) => String(r.text)).filter(Boolean);
-    } catch {
-      // table missing: fall back to the built-in list
-    }
-    if (talents.length < 2) talents = FALLBACK_TALENTS;
-    const deck = shuffle(talents);
+    const rows = (await loadBank<BankRow & { text: string }>('talents')).filter((r) => String(r.text).trim());
+    const deck: { id?: string; text: string }[] =
+      rows.length >= 2 ? leastUsed(rows).map((r) => ({ id: r.id, text: String(r.text) })) : shuffle(FALLBACK_TALENTS).map((text) => ({ text }));
     const order = shuffle(ctx.players.map((p) => p.id));
     const assigned: Record<string, string> = {};
+    const ids: Record<string, string> = {};
     order.forEach((pid, i) => {
-      assigned[pid] = deck[i % deck.length];
+      const t = deck[i % deck.length];
+      assigned[pid] = t.text;
+      if (t.id) ids[pid] = t.id;
     });
-    await ctx.saveRun({ order, talents: assigned });
+    markUsed('talents', Object.values(ids));
+    await ctx.saveRun({ order, talents: assigned, talentIds: ids, spare: deck.slice(order.length) });
   },
 
   async startRound(ctx) {
@@ -118,19 +124,45 @@ export const talentShow: GameModule = {
       case 'announce':
         return ctx.setStep('perform', { performerId, talent }, { seconds: PERFORM_SECONDS });
       case 'perform':
-        return ctx.setStep('rate', { performerId, talent }, { seconds: RATE_SECONDS, submit: ['rating'] });
+        return ctx.setStep('rate', { performerId, talent }, { seconds: RATE_SECONDS, submit: ['rating', 'encore'], count: ['rating'] });
       case 'rate': {
         const ratings = ctx.roundSubs('rating').filter((s) => s.player_id !== performerId);
         const stars = ratings.map((s) => Math.min(5, Math.max(1, Number(s.payload.stars) || 0))).filter(Boolean);
         const avg = stars.length ? stars.reduce((a, b) => a + b, 0) / stars.length : 0;
         const points = Math.round(avg * POINTS_PER_STAR);
-        await ctx.award([{ playerId: performerId, points, reason: REASON.talent }]);
-        const reveal: Reveal = { performerId, talent, avg, count: stars.length, points };
+        const encores = ctx.roundSubs('encore').filter((s) => s.player_id !== performerId).length;
+        await ctx.award([
+          { playerId: performerId, points, reason: REASON.talent },
+          { playerId: performerId, points: encores * ENCORE_POINTS, reason: REASON.talentEncore },
+        ]);
+        const reveal: Reveal = { performerId, talent, avg, count: stars.length, points, encores };
         return ctx.setStep('reveal', { ...reveal });
       }
       default:
         return ctx.endRound();
     }
+  },
+
+  /** Skip = swap this performer's talent for a fresh one (the old one is retired by "never show again"). */
+  async skip(ctx) {
+    const st = ctx.run.state as RunState;
+    const performerId = String(ctx.room.state.performerId ?? '');
+    if (ctx.room.round === 1 && ctx.room.state.step === 'prep') return ctx.setStep('prep', {}, { seconds: PREP_SECONDS });
+    await ctx.removeSubs(ctx.roundSubs().filter((s) => s.kind !== 'talent').map((s) => s.id));
+    const spare = [...(st.spare ?? [])];
+    const next = spare.shift();
+    if (performerId && next) {
+      const talents = { ...(st.talents ?? {}), [performerId]: next.text };
+      const talentIds = { ...(st.talentIds ?? {}) };
+      if (next.id) talentIds[performerId] = next.id;
+      else delete talentIds[performerId];
+      markUsed('talents', [next.id]);
+      await ctx.saveRun({ talents, talentIds, spare });
+      const row = ctx.roundSubs('talent').find((s) => s.player_id === performerId);
+      if (row) await ctx.removeSubs([row.id]);
+      await ctx.addSubs([{ kind: 'talent', player_id: performerId, payload: { talent: next.text } }]);
+    }
+    return announce(ctx);
   },
 
   ready(ctx) {
@@ -155,12 +187,13 @@ function Stars({ value }: { value: number }) {
   );
 }
 
-function TalentTV({ room, players }: TVGameProps) {
+function TalentTV({ room, players, subs }: TVGameProps) {
   const step = room.state.step;
   const map = new Map(players.map((p) => [p.id, p]));
   const performer = map.get(String(room.state.performerId ?? ''));
   const talent = String(room.state.talent ?? '');
   const done = (room.state.done ?? []).length;
+  const liveEncores = subs.filter((s) => s.round === room.round && s.kind === 'encore' && s.player_id !== room.state.performerId).length;
 
   if (step === 'prep') {
     return (
@@ -201,6 +234,7 @@ function TalentTV({ room, players }: TVGameProps) {
         <PlayerChip player={performer} size="xl" />
         <h1 className="display">Rate the performance!</h1>
         <p className="lead dim">{done} of {Math.max(players.length - 1, 0)} rated</p>
+        {liveEncores > 0 && <p className="lead pop-in">👏 {liveEncores} encore{liveEncores === 1 ? '' : 's'}!</p>}
       </div>
     );
   }
@@ -213,7 +247,8 @@ function TalentTV({ room, players }: TVGameProps) {
       <div className="stars-big pop-in"><Stars value={avg} /></div>
       <p className="big-num">{count ? avg.toFixed(1) : '—'}</p>
       <p className="lead dim">{count} rating{count === 1 ? '' : 's'}</p>
-      <p className="points big-num">+{Number(room.state.points ?? 0)}</p>
+      {Number(room.state.encores ?? 0) > 0 && <p className="lead">👏 {Number(room.state.encores)} encore{Number(room.state.encores) === 1 ? '' : 's'} (+{Number(room.state.encores) * ENCORE_POINTS})</p>}
+      <p className="points big-num">+{Number(room.state.points ?? 0) + Number(room.state.encores ?? 0) * ENCORE_POINTS}</p>
     </div>
   );
 }
@@ -224,6 +259,7 @@ function TalentPhone({ room, me, players, api }: PhoneGameProps) {
   const you = performer?.id === me.id;
   const myTalent = String(api.mySubs.find((s) => s.kind === 'talent')?.payload.talent ?? '');
   const mine = api.mySubs.find((s) => s.kind === 'rating');
+  const encored = api.mySubs.some((s) => s.kind === 'encore');
   const [err, setErr] = useState<string | null>(null);
 
   if (step === 'prep') {
@@ -285,6 +321,15 @@ function TalentPhone({ room, me, players, api }: PhoneGameProps) {
           ))}
         </div>
         <p className="dim">{mine ? `You gave ${String(mine.payload.stars)}. Tap to change.` : 'Tap a star'}</p>
+        <button
+          className={`btn btn-lg${encored ? ' btn-primary' : ''}`}
+          disabled={encored}
+          onClick={() => {
+            api.submit('encore', {}).catch((e) => setErr(errorCode(e) === 'NOT_ACCEPTING' ? 'Too late!' : errorCode(e)));
+          }}
+        >
+          👏 {encored ? 'Encore sent!' : 'Encore!'}
+        </button>
         {err && <p className="error">{err}</p>}
       </div>
     );
@@ -296,7 +341,7 @@ function TalentPhone({ room, me, players, api }: PhoneGameProps) {
       <h2>{performer?.name}</h2>
       <Stars value={avg} />
       <p className="big-num">{Number(room.state.count) ? avg.toFixed(1) : '—'}</p>
-      {you && <p className="points big-num">+{Number(room.state.points ?? 0)}</p>}
+      {you && <p className="points big-num">+{Number(room.state.points ?? 0) + Number(room.state.encores ?? 0) * ENCORE_POINTS}</p>}
     </div>
   );
 }

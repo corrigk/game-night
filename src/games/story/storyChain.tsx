@@ -3,7 +3,8 @@ import { PlayerChip } from '../../components/PlayerChip';
 import { secondsLeft } from '../../lib/clock';
 import { load, save } from '../../lib/storage';
 import { shuffle } from '../../lib/random';
-import { errorCode, supabase } from '../../lib/supabase';
+import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
+import { errorCode } from '../../lib/supabase';
 import type { Player } from '../../lib/types';
 import type { GameCtx, GameModule, PhoneGameProps, TVGameProps } from '../types';
 
@@ -134,10 +135,11 @@ export const storyChain: GameModule = {
   status: 'ready',
 
   async setup(ctx) {
-    const { data } = await supabase.from('story_seeds').select('genre, opening_line');
-    const seeds = (data?.length ? data : FALLBACK_SEEDS) as { genre: string; opening_line: string }[];
+    const rows = await loadBank<BankRow & { genre: string; opening_line: string }>('story_seeds');
+    const seeds: { id?: string; genre: string; opening_line: string }[] = rows.length ? leastUsed(rows) : FALLBACK_SEEDS;
     const order = shuffle(ctx.players.map((p) => p.id));
-    const deck = shuffle(seeds); // all different while there are enough seeds
+    const deck = seeds; // already shuffled, least-used first: all different while there are enough seeds
+    markUsed('story_seeds', order.map((_, i) => deck[i % deck.length].id));
     const stories: Record<string, Story> = {};
     order.forEach((pid, i) => {
       const seed = deck[i % deck.length];

@@ -84,6 +84,8 @@ export interface StepOptions {
   vote?: string[];
   /** Which input drives the "who's done" strip. Defaults to submit if any, else vote. */
   track?: 'submit' | 'vote';
+  /** Submission kinds that count toward "done" (default: all of `submit`). */
+  count?: string[];
 }
 
 export interface NewSub {

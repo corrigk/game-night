@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Countdown } from '../components/Countdown';
 import { Leaderboard } from '../components/Leaderboard';
+import { TeamStandings } from '../components/TeamStandings';
+import { teamTotals } from '../lib/teams';
 import { Modal } from '../components/Modal';
 import { Avatar, PlayerChip } from '../components/PlayerChip';
 import { GAME_LIST, GAMES } from '../games/registry';
@@ -145,6 +147,7 @@ function Hub({ room, players, engine, engineSnap }: Props) {
         <p className="tv-footer dim">Host: click a game to start it</p>
       </div>
       <aside className="hub-side card">
+        <TeamStandings players={players} settings={room.settings} />
         <Leaderboard players={players} title="Tonight" />
       </aside>
       <JoinBadge code={room.code} />
@@ -222,6 +225,12 @@ function Play({ room, players, engine, engineSnap }: Props) {
 
   return (
     <div className="screen play">
+      {Boolean(room.state.paused) && (
+        <div className="pause-overlay">
+          <div className="display huge">⏸ Paused</div>
+          <p className="lead">Press <kbd>Space</kbd> or <kbd>P</kbd> to resume</p>
+        </div>
+      )}
       <header className="play-header">
         <div className="play-title">
           <span>{game.emoji}</span> {game.title}
@@ -288,6 +297,7 @@ function Results({ room, players }: Props) {
         </p>
       </div>
       <aside className="hub-side card">
+        <TeamStandings players={players} settings={room.settings} />
         <Leaderboard players={players} title="Tonight" />
       </aside>
     </div>
@@ -324,6 +334,11 @@ function Awards({ room, players }: Props) {
             ),
           )}
         </div>
+        {teamTotals(players, room.settings).length > 0 && (
+          <p className="lead">
+            🏅 Winning team: <b>{teamTotals(players, room.settings)[0].emoji} {teamTotals(players, room.settings)[0].name}</b>
+          </p>
+        )}
         <div className="podium-rest">
           {ranked.slice(3).map((p, i) => (
             <span key={p.id} className="dim">{i + 4}. {p.name} ({p.score})</span>
@@ -334,6 +349,7 @@ function Awards({ room, players }: Props) {
     );
   }
 
+  if (stage > awards.length) return <RecapScreen code={room.code} />;
   const award = awards[stage - 1];
   if (!award) return null;
   return (
@@ -348,6 +364,20 @@ function Awards({ room, players }: Props) {
       </div>
       <p className="lead">{award.detail}</p>
       <p className="tv-footer"><kbd>Space</kbd> {stage < awards.length ? 'next award' : 'back to the hub'}</p>
+    </div>
+  );
+}
+
+function RecapScreen({ code }: { code: string }) {
+  const url = `${window.location.origin}/recap?code=${code}`;
+  return (
+    <div className="screen center-stack">
+      <h1 className="display huge title-glow">📸 Night Recap</h1>
+      <p className="lead">Scan to get the scoreboard, awards and best moments. Save it, share it!</p>
+      <div className="qr" style={{ maxWidth: '20em' }}>
+        <QRCodeSVG value={url} size={512} marginSize={2} bgColor="#ffffff" fgColor="#000000" />
+      </div>
+      <p className="tv-footer"><kbd>Space</kbd> back to the hub</p>
     </div>
   );
 }

@@ -82,6 +82,24 @@ function BankEditor({ bank }: { bank: Bank }) {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, [field.key]: next[field.key] } : r)));
   };
 
+  const resetUsage = async () => {
+    const { error } = await supabase.from(bank.table).update({ times_used: 0, last_used_at: null }).not('id', 'is', null);
+    setMsg(error ? error.message : 'Usage counts reset.');
+    await reload();
+  };
+
+  const restore = async (id: string) => {
+    const { error } = await supabase.from(bank.table).update({ vetoed: false }).eq('id', id);
+    if (error) return setMsg(error.message);
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, vetoed: false } : r)));
+  };
+
+  const restoreAll = async () => {
+    const { error } = await supabase.from(bank.table).update({ vetoed: false }).eq('vetoed', true);
+    setMsg(error ? error.message : 'Restored all retired rows.');
+    await reload();
+  };
+
   const remove = async (id: string) => {
     const { error } = await supabase.from(bank.table).delete().eq('id', id);
     if (error) return setMsg(error.message);
@@ -119,6 +137,8 @@ function BankEditor({ bank }: { bank: Bank }) {
           </label>
         )}
         <button className="btn btn-sm" onClick={exportJson} disabled={!rows.length}>Export JSON</button>
+        <button className="btn btn-sm" onClick={() => void resetUsage()}>Reset usage counts</button>
+        {rows.some((r) => r.vetoed) && <button className="btn btn-sm" onClick={() => void restoreAll()}>Restore all retired</button>}
       </div>
       {msg && (
         <p className="admin-msg" onClick={() => setMsg(null)}>
@@ -143,6 +163,7 @@ function BankEditor({ bank }: { bank: Bank }) {
               {bank.fields.map((f) => (
                 <th key={f.key}>{f.label}</th>
               ))}
+              <th>Used</th>
               <th />
             </tr>
           </thead>
@@ -163,6 +184,12 @@ function BankEditor({ bank }: { bank: Bank }) {
                     )}
                   </td>
                 ))}
+                <td className="dim">
+                  {Number(r.times_used ?? 0)}×
+                  {Boolean(r.vetoed) && (
+                    <button className="btn btn-sm btn-danger" onClick={() => void restore(r.id)} title="Retired from games. Click to restore.">retired ↺</button>
+                  )}
+                </td>
                 <td>
                   <button className="btn btn-sm btn-ghost" onClick={() => void remove(r.id)} aria-label="Delete row">✕</button>
                 </td>
