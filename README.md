@@ -19,6 +19,10 @@ Built with Vite + React + TypeScript and Supabase (Realtime, Postgres, Storage, 
 | 📜 **Story Chain** | no | Everyone starts a story (genre + opening line). Each round the stories rotate and you see only the last line. Finale: each person reads the story they started while the TV scrolls it, then reveals authors by color. |
 | 🏠 **Zillow Hunt** | yes | Search Zillow on your own phone, submit a link + 1-3 screenshots. Anonymous gallery vote, top 3 pitch for 45s, final vote. "Call it out" on filter rounds; the host rules. Nothing is scraped or embedded. |
 | 🎭 **Talent Show** | yes | Everyone is secretly assigned an absurd talent they cannot do and gets 2 minutes to prepare, then performs live. The audience rates 1-5 stars. |
+| 🔤 **Emoji Translation** | yes | Everyone secretly gets a title (movie, Bible story, saint, song, food or show) and builds a clue from emoji only (max 8). Then each clue is shown huge on the TV and everyone else guesses from 5 choices. Correct: 300 + up to 200 for speed. The clue's creator earns 100 per correct guesser, but nothing if everyone or nobody got it. |
+| 🐬 **Dolphin** | yes | One player (random among those who haven't gone) steps out of the room. Everyone else is secretly shown a physical task. The Dolphin returns and has 90s to work it out from spoken yes/no answers only. The host presses **Enter** (or Solved) when done. Dolphin: 100-500 by time left; everyone else +50 if solved. |
+| 🔥 **Hot Seat** | yes (teams) | Teams take turns. A guesser stands with their back to the TV while teammates describe the word without the 3 forbidden words or gestures. 60s per turn. Describers tap Got it / Skip (max 3, -1 each); other teams tap BUZZ to void a card. +1 per word. Winning team members get +300 each on the individual leaderboard. |
+| 🎬 **Movie Voting** | no | A utility game: everyone suggests 1-2 movies, then gets 2 votes. The top 3 move to a runoff, then a final vote picks tonight's movie. |
 | ⚡ **Tap Race** | yes | A 30-second warm-up. Great for checking everyone's phone works. |
 
 At the end of the night, **Final Awards** on the hub shows the podium and silly superlatives
@@ -38,6 +42,8 @@ Dream Home Hunter, Star Performer, Participation Trophy).
    2. `20261011000100_fact_aliases.sql`
    3. `20261011000200_talents.sql`
    4. `20261011000300_usage_and_veto.sql`
+   5. `20261012000000_teams.sql`
+   6. `20261012000100_new_game_content.sql`
 
    (Or with the Supabase CLI: `supabase link` then `supabase db push`.) Running a file twice
    fails harmlessly with "already exists"; just skip it.
@@ -95,6 +101,9 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
   (private bucket, never in the repo). The **generic** pool is for everyone-safe images; with none
   added, 12 built-in placeholder pictures are used. The host drawer's slider sets how often a
   friends photo shows up (default 30%).
+- **Emoji titles:** `{"title": "Jonah and the Whale", "category": "bible"}`. Categories used: movies, bible, saints, songs, foods, tv. Decoys come from the same category, so keep 6+ titles per category.
+- **Dolphin tasks:** `{"text": "Put a sock on a lamp", "difficulty": "easy"}`. Keep them physical, safe and family-friendly: no touching people, stunts, leaving the room, or eating.
+- **Hot Seat words:** `{"word": "Pizza", "forbidden": ["cheese", "pepperoni", "slice"], "category": "food"}` (exactly 3 forbidden words).
 - Without any talents in the database, the Talent Show uses a built-in list.
 
 ---
@@ -107,6 +116,16 @@ Prompt banks live in Supabase, not in the repo, so friends can't read the answer
 - **Teams** (drawer): 2-4 teams; a team scores the sum of its members. Voting is unchanged.
 - **Encore** (Talent Show): audience taps 👏 for +50 each.
 - **Night recap:** after Final Awards the TV shows a QR for `/recap?code=XXXX`, with standings, awards, best moments, and a save-as-image button.
+
+## Teams, Dolphin, Hot Seat and Movie Voting: host notes
+
+**Teams** (hub **👥 Teams** button, drawer, or `T`): pick 2-4 teams, everyone is dealt in at random and balanced (odd counts are fine). Re-roll, rename a team, or click a player to move them to the next team (the drawer also has a dropdown per player). Teams last the whole night; late joiners land on the smallest team. A colored ring marks each player's team on the TV and a team pill shows in the phone header. Hot Seat creates 2 teams automatically if there are none, and its intro screen has a **Set up teams** button.
+
+**Dolphin** controls (drawer): Solved (`Enter`), Re-roll task, Retire task & re-roll, New random Dolphin, or pick a specific Dolphin. `Space` brings the Dolphin back and starts the timer; it will not end a round by accident. Default rounds = number of players (max 6). Everyone goes once before anyone goes twice. The task is never shown on the TV until the reveal.
+
+**Hot Seat** controls (drawer): Got it (`Enter`), Skip card (free), Undo last point, and `P` to pause the turn timer. Rounds: a round is every team going once; **+1 round** adds a full round. Card text (word and forbidden words) is shown only on the TV, which faces away from the guesser; phones only get the buttons.
+
+**Movie Voting**: no points. The suggestions are merged if two people suggest the same movie. Set rounds to 2 for submit+vote then a final, or 3+ for extra runoffs. Ties at the cutoff all advance, and a tie for first shows as co-winners.
 
 ## Running a game night
 
@@ -133,6 +152,8 @@ If the TV refreshes, it resumes the same room and the same step.
 | `+`     | Add 15 seconds to the timer  |
 | `Q`     | Full-screen join QR (any time, for latecomers) |
 | `P`     | Pause / resume the timer |
+| `T`     | Team setup |
+| `Enter` | The game's "yes": Dolphin solved, Hot Seat got-it |
 | `Esc`   | Close a dialog               |
 
 ### Host drawer
@@ -172,6 +193,11 @@ Do this a day or two before, ideally with 3-4 friends on real phones.
 - [ ] One person joins from a second phone with "Yes, that's me".
 
 **Each game (one quick round each)**
+- [ ] Emoji Translation: letters are stripped from clues, 5 options per clue, composer scores only when some (not all) guess it.
+- [ ] Dolphin: the Dolphin's phone says leave the room; the TV never shows the task until the reveal; Enter solves it.
+- [ ] Hot Seat (use 4+ players): guesser's phone is dark, describers tap Got it, the other team's BUZZ voids a card and flashes the TV, turn summary shows between turns.
+- [ ] Movie Voting: duplicates merge, each person gets 2 votes, top 3 go to a runoff.
+- [ ] Teams: shuffle, rename, move a player, join a new phone late.
 - [ ] Tap Race: green button works, results show.
 - [ ] Most Likely To: vote, reveal, majority points.
 - [ ] Weird Facts: typing the real answer is rejected; a fake matching someone else's is rejected; truth + blurb reveal.

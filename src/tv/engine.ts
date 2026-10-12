@@ -213,6 +213,9 @@ export class HostEngine {
       get players() {
         return self.players;
       },
+      get teams() {
+        return self.teams;
+      },
       get run() {
         return self.snap.run ?? run;
       },
@@ -306,6 +309,8 @@ export class HostEngine {
 
   private async showResults() {
     const run = this.snap.run;
+    const mod = this.module;
+    if (run && mod?.onFinish && run.status !== 'done' && run.status !== 'exited') await mod.onFinish(this.ctx());
     const totals: Record<string, number> = {};
     if (run) {
       const { data } = await supabase.from('score_events').select('player_id, points').eq('run_id', run.id);
@@ -339,9 +344,12 @@ export class HostEngine {
       if (prev && prev.status !== 'done' && prev.status !== 'exited') {
         await this.patchRun({ status: 'exited', ended_at: new Date().toISOString() });
       }
+      if (mod.needsTeams && this.teams.length < 2) await this.applyTeamCount(2);
+      const per = mod.turnsPerRound?.(this.teams.length) ?? 1;
+      const total = rounds * per;
       const { data, error } = await supabase
         .from('game_runs')
-        .insert({ room_id: this.room.id, game_type: gameId, status: 'intro', config: { rounds } })
+        .insert({ room_id: this.room.id, game_type: gameId, status: 'intro', config: { rounds, per } })
         .select()
         .single();
       if (error) throw error;
@@ -349,7 +357,7 @@ export class HostEngine {
       this.loadedRunId = run.id;
       this.set({ run, subs: [], votes: [] });
       await this.patchRoom({
-        phase: 'intro', current_game: gameId, current_run_id: run.id, round: 0, rounds_total: rounds, state: {}, ...CLEAR_TIMER,
+        phase: 'intro', current_game: gameId, current_run_id: run.id, round: 0, rounds_total: total, state: {}, ...CLEAR_TIMER,
       });
       if (mod.setup) await mod.setup(this.ctx());
       await this.loadRuns();
@@ -472,7 +480,8 @@ export class HostEngine {
     this.act(async () => {
       const r = this.room;
       if (r.phase !== 'intro' && r.phase !== 'play') return;
-      const rounds = Math.min(r.rounds_total + 1, 50);
+      const per = Number(this.snap.run?.config?.per ?? 1);
+      const rounds = Math.min(r.rounds_total + per, 50 * per);
       await this.patchRoom({ rounds_total: rounds });
       await this.patchRun({ config: { ...(this.snap.run?.config ?? {}), rounds } });
     });
@@ -504,8 +513,9 @@ export class HostEngine {
   }
 
   /** Create or trim teams to `count` (2-4) and re-deal everyone. Existing teams keep their names. */
-  setTeamCount = (count: number) =>
-    this.act(async () => {
+  setTeamCount = (count: number) => this.act(() => this.applyTeamCount(count));
+
+  private async applyTeamCount(count: number) {
       const n = Math.max(2, Math.min(TEAMS.maxCount, Math.round(count)));
       let teams = [...this.teams];
       if (teams.length > n) {
@@ -520,7 +530,7 @@ export class HostEngine {
       }
       this.store.applyTeams(teams);
       await this.dealTeams(this.teams);
-    });
+  }
 
   rerollTeams = () => this.act(() => this.dealTeams(this.teams));
 

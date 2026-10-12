@@ -98,6 +98,13 @@ export function HostDrawer({
           {room.phase === 'lobby' && <p className="dim small">Next opens the game hub.</p>}
         </section>
 
+        {game?.HostControls && inGame && (
+          <section>
+            <h3>{game.title} controls</h3>
+            <game.HostControls room={room} players={players} run={engineSnap.run} engine={engine} />
+          </section>
+        )}
+
         <section>
           <h3>Display</h3>
           <div className="theme-list">

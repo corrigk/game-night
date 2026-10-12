@@ -118,6 +118,17 @@ export async function computeNight(
   push('tap', 'Quickest Draw', '⚡', topOf(byReason((r) => r === REASON.tapWin)), (n) => `Fastest tap ${n} time${n === 1 ? '' : 's'}`);
   push('zillow', 'Dream Home Hunter', '🏠', topOf(byReason((r) => r === REASON.zilFinal, (p) => (p >= 400 ? 1 : 0))), (n) => `Won ${n} Zillow final${n === 1 ? '' : 's'}`);
   push('talent', 'Star Performer', '🎭', topOf(byReason((r) => r === REASON.talent, (p) => p)), (n) => `${n} talent points`);
+  push('emoji', 'Best Emoji Artist', '🎨', topOf(byReason((r) => r === REASON.emojiComposer, (p) => p)), (n) => `${n} points from clever clues`);
+  push('dolphin', 'Best Dolphin', '🐬', topOf(byReason((r) => r === REASON.dolphinSolved, (p) => p)), (n) => `${n} points as the Dolphin`);
+
+  // Hot Seat MVP: most words described correctly (the describer who tapped "Got it!").
+  const mvp = new Map<string, number>();
+  for (const r of runs.data ?? []) {
+    if (r.game_type !== 'hot_seat') continue;
+    for (const [pid, n] of Object.entries((r.state as { mvp?: Record<string, number> }).mvp ?? {})) if (ids.has(pid)) add(mvp, pid, Number(n));
+  }
+  push('hotseat', 'Hot Seat MVP', '🔥', topOf(mvp), (n) => `${n} word${n === 1 ? '' : 's'} described correctly`);
+
   push('encore', 'Crowd Favorite', '👏', topOf(byReason((r) => r === REASON.talentEncore, (p) => p / 50)), (n) => `Earned ${n} encore${n === 1 ? '' : 's'}`);
 
   // Highlights from per-run history.

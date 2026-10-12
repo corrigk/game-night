@@ -157,6 +157,7 @@ function Hub({ room, players, teams, openTeams, engine, engineSnap }: Props) {
       {picked && (
         <StartGameModal
           game={picked}
+          playerCount={players.length}
           onClose={() => setPicked(null)}
           onStart={(rounds) => {
             setPicked(null);
@@ -168,8 +169,8 @@ function Hub({ room, players, teams, openTeams, engine, engineSnap }: Props) {
   );
 }
 
-function StartGameModal({ game, onClose, onStart }: { game: GameModule; onClose: () => void; onStart: (rounds: number) => void }) {
-  const [rounds, setRounds] = useState(game.defaultRounds);
+function StartGameModal({ game, playerCount, onClose, onStart }: { game: GameModule; playerCount: number; onClose: () => void; onStart: (rounds: number) => void }) {
+  const [rounds, setRounds] = useState(game.defaultRoundsFor ? game.defaultRoundsFor(playerCount) : game.defaultRounds);
   return (
     <Modal onClose={onClose}>
       <h2>
@@ -193,7 +194,7 @@ function StartGameModal({ game, onClose, onStart }: { game: GameModule; onClose:
 }
 
 // ----------------------------------------------------------------- intro
-function Intro({ room }: Props) {
+function Intro({ room, teams, openTeams }: Props) {
   const game = room.current_game ? GAMES[room.current_game] : undefined;
   if (!game) return null;
   return (
@@ -206,6 +207,12 @@ function Intro({ room }: Props) {
           <li key={r}>{r}</li>
         ))}
       </ol>
+      {game.needsTeams && (
+        <div className="center-stack">
+          <button className="btn btn-lg" onClick={openTeams}>👥 Set up teams</button>
+          <p className="dim">{teams.length >= 2 ? teams.map((t) => t.name).join(' vs ') : 'Two teams will be created when you start.'}</p>
+        </div>
+      )}
       <p className="dim">
         {room.rounds_total} round{room.rounds_total === 1 ? '' : 's'}
         {!game.scored && ' · no points'}
@@ -239,8 +246,14 @@ function Play({ room, players, engine, engineSnap }: Props) {
           <span>{game.emoji}</span> {game.title}
         </div>
         <div className="play-round">
-          Round {room.round}
-          <span className="dim"> / {room.rounds_total}</span>
+          {game.progressLabel ? (
+            game.progressLabel(room)
+          ) : (
+            <>
+              Round {room.round}
+              <span className="dim"> / {room.rounds_total}</span>
+            </>
+          )}
         </div>
         <div className="play-timer">
           {!room.state.hideTimer && <Countdown endsAt={room.timer_ends_at} duration={room.timer_duration} size="lg" sound />}
@@ -248,12 +261,12 @@ function Play({ room, players, engine, engineSnap }: Props) {
       </header>
       <main className="play-body">
         {room.state.step ? (
-          <Game room={room} players={players} subs={engineSnap.subs} votes={engineSnap.votes} engine={engine} />
+          <Game room={room} players={players} subs={engineSnap.subs} votes={engineSnap.votes} run={engineSnap.run} engine={engine} />
         ) : (
           <div className="center-stack"><div className="spinner" /></div>
         )}
       </main>
-      {accepting && players.length > 0 && (
+      {accepting && !room.state.hideStrip && players.length > 0 && (
         <footer className="waiting-strip">
           {players.map((p) => (
             <span key={p.id} className={done.has(p.id) ? 'is-done' : 'is-waiting'}>

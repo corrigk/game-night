@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { GameRun, Player, Room, Submission, Vote } from '../lib/types';
+import type { GameRun, Player, Room, Submission, Team, Vote } from '../lib/types';
 import type { HostEngine } from '../tv/engine';
 
 /**
@@ -47,8 +47,28 @@ export interface GameModule {
   /** Host-only buttons rendered by the TV component (engine.gameAction). */
   action?(ctx: GameCtx, name: string, payload: Record<string, unknown>): Promise<void>;
 
+  /** Needs 2+ teams: the engine creates 2 at game start if there are none. */
+  needsTeams?: boolean;
+  /** Default round count that depends on the room (e.g. Dolphin: one per player, up to 6). */
+  defaultRoundsFor?(playerCount: number): number;
+  /** Engine rounds that make one host-visible round (Hot Seat: one turn per team). */
+  turnsPerRound?(teamCount: number): number;
+  /** Header text, when "Round 3 / 8" is not the right framing. */
+  progressLabel?(room: Room): string;
+  /** Called once when the game ends, naturally or early, before results are tallied. */
+  onFinish?(ctx: GameCtx): Promise<void>;
+  /** Extra controls in the host drawer while this game runs. */
+  HostControls?: ComponentType<HostControlsProps>;
+
   TV: ComponentType<TVGameProps>;
   Phone: ComponentType<PhoneGameProps>;
+}
+
+export interface HostControlsProps {
+  room: Room;
+  players: Player[];
+  run: GameRun | null;
+  engine: HostEngine;
 }
 
 export interface TVGameProps {
@@ -57,6 +77,8 @@ export interface TVGameProps {
   /** Everything submitted in this run (all rounds). TV only; phones never get this. */
   subs: Submission[];
   votes: Vote[];
+  /** The current run, including engine-private state (host-only: never forward it to phones). */
+  run: GameRun | null;
   engine: HostEngine;
 }
 
@@ -100,6 +122,7 @@ export interface NewSub {
 export interface GameCtx {
   readonly room: Room;
   readonly players: Player[];
+  readonly teams: Team[];
   readonly run: GameRun;
   /** This round's submissions / votes, optionally filtered by kind. */
   roundSubs(kind?: string): Submission[];

@@ -133,6 +133,10 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
         setBigQr((v) => !v);
       } else if (e.key === 'Escape') {
         setBigQr(false);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        void engine?.gameAction('enter');
       } else if (e.key === ' ') {
         // Don't let Space also "click" whichever drawer button has focus.
         e.preventDefault();

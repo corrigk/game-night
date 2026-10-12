@@ -13,6 +13,9 @@ export const REASON = {
   talentEncore: 'Talent Show: encores',
   emojiGuess: 'Emoji Translation: correct guess',
   emojiComposer: 'Emoji Translation: clue artist',
+  dolphinSolved: 'Dolphin: solved the task',
+  dolphinBonus: 'Dolphin: group bonus',
+  hotSeatWinner: 'Hot Seat: winning team bonus',
 } as const;
 
 export const WF_TRUTH_POINTS = 300;

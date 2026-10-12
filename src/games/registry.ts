@@ -1,6 +1,9 @@
 import { captionThis } from './caption/captionThis';
+import { dolphin } from './dolphin/dolphin';
+import { hotSeat } from './hotseat/hotSeat';
 import { emojiTranslation } from './emoji/emojiTranslation';
 import { mostLikely } from './mostLikely/mostLikely';
+import { movieVoting } from './movies/movieVoting';
 import { storyChain } from './story/storyChain';
 import { talentShow } from './talent/talentShow';
 import { tapRace } from './taprace/tapRace';
@@ -20,6 +23,9 @@ export const GAME_LIST: GameModule[] = [
   zillowHunt,
   talentShow,
   emojiTranslation,
+  dolphin,
+  hotSeat,
+  movieVoting,
   tapRace,
 ];
 
