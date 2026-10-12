@@ -572,3 +572,55 @@
     min-width: 6em;
   }
 }
+
+/* ==========================================================================
+   Big QR overlay
+   ========================================================================== */
+.bigqr {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  background-image: var(--bg-image);
+  cursor: pointer;
+}
+.bigqr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  text-align: center;
+}
+.bigqr-label {
+  margin: 0;
+  font-family: var(--font-display);
+  text-transform: var(--display-transform);
+  font-size: 2.2em;
+}
+.bigqr-code {
+  background: #fff;
+  padding: 0.5em;
+  border-radius: 18px;
+  width: min(62vh, 78vw);
+  height: min(62vh, 78vw);
+}
+.bigqr-code svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.bigqr-room {
+  font-family: var(--font-display);
+  font-size: calc(5em * var(--display-scale));
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: var(--glow);
+}
+.bigqr-url {
+  margin: 0;
+  font-size: 1.4em;
+  font-weight: 700;
+}

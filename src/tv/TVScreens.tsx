@@ -101,7 +101,7 @@ function Lobby({ room, players, online }: Props) {
 /** Small corner badge so latecomers can always join. */
 function JoinBadge({ code }: { code: string }) {
   return (
-    <div className="join-badge">
+    <div className="join-badge" title="Press Q for a bigger QR">
       <QRCodeSVG value={joinUrl(code)} size={96} marginSize={1} bgColor="#ffffff" fgColor="#000000" />
       <div>
         <div className="dim small">Join</div>
@@ -250,7 +250,7 @@ function Play({ room, players, engine, engineSnap }: Props) {
           ))}
         </footer>
       )}
-      <div className="join-badge join-badge-mini">{room.code}</div>
+      <div className="join-badge join-badge-mini" title="Press Q for the QR code">{room.code} · Q</div>
     </div>
   );
 }

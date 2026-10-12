@@ -121,6 +121,7 @@ If the TV refreshes, it resumes the same room and the same step.
 | `H`     | Toggle the host drawer       |
 | `Space` | Next (advance the game)      |
 | `+`     | Add 15 seconds to the timer  |
+| `Q`     | Full-screen join QR (any time, for latecomers) |
 | `Esc`   | Close a dialog               |
 
 ### Host drawer

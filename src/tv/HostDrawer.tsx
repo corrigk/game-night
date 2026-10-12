@@ -18,6 +18,7 @@ type Pending =
 export function HostDrawer({
   open,
   onClose,
+  onShowQr,
   room,
   players,
   online,
@@ -27,6 +28,7 @@ export function HostDrawer({
 }: {
   open: boolean;
   onClose: () => void;
+  onShowQr: () => void;
   room: Room;
   players: Player[];
   online: Set<string>;
@@ -155,11 +157,12 @@ export function HostDrawer({
         <section>
           <h3>Room {room.code}</h3>
           <div className="row gap wrap">
+            <button className="btn btn-sm" onClick={onShowQr}>Big QR <kbd>Q</kbd></button>
             <a className="btn btn-sm" href="/admin" target="_blank" rel="noreferrer">Open admin</a>
             <button className="btn btn-sm btn-danger" onClick={() => setPending({ kind: 'newRoom' })}>Hard reset</button>
           </div>
           <p className="dim small">
-            Shortcuts: <kbd>H</kbd> drawer · <kbd>Space</kbd> next · <kbd>+</kbd> add 15s
+            Shortcuts: <kbd>H</kbd> drawer · <kbd>Space</kbd> next · <kbd>+</kbd> add 15s · <kbd>Q</kbd> big QR
           </p>
         </section>
       </aside>

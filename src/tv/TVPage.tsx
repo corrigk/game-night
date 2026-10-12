@@ -10,6 +10,7 @@ import { errorCode, supabase } from '../lib/supabase';
 import type { Room } from '../lib/types';
 import { useTheme } from '../themes/themes';
 import { HostEngine, useEngine } from './engine';
+import { BigQr } from './BigQr';
 import { HostDrawer } from './HostDrawer';
 import { TVScreens } from './TVScreens';
 
@@ -68,6 +69,7 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
   const { store, snap } = useRoomStore(code);
   const [engine, setEngine] = useState<HostEngine | null>(null);
   const [drawer, setDrawer] = useState(false);
+  const [bigQr, setBigQr] = useState(false);
   const engineSnap = useEngine(engine);
   const online = usePresence(code, null);
   const roomReady = snap?.status === 'ready';
@@ -108,6 +110,10 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'h' || e.key === 'H') {
         setDrawer((d) => !d);
+      } else if (e.key === 'q' || e.key === 'Q') {
+        setBigQr((v) => !v);
+      } else if (e.key === 'Escape') {
+        setBigQr(false);
       } else if (e.key === ' ') {
         // Don't let Space also "click" whichever drawer button has focus.
         e.preventDefault();
@@ -132,6 +138,7 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
 
   return (
     <div className="tv" onClick={unlockAudio}>
+      {bigQr && <BigQr code={snap.room.code} onClose={() => setBigQr(false)} />}
       <TVScreens room={snap.room} players={snap.players} engine={engine} engineSnap={engineSnap} online={online} />
       {!snap.live && <div className="tv-offline">Reconnecting…</div>}
       {engineSnap.error && !drawer && (
@@ -142,6 +149,10 @@ function TVRunner({ code, onNewRoom, onMissing }: { code: string; onNewRoom: () 
       <HostDrawer
         open={drawer}
         onClose={() => setDrawer(false)}
+        onShowQr={() => {
+          setDrawer(false);
+          setBigQr(true);
+        }}
         room={snap.room}
         players={snap.players}
         online={online}
