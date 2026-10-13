@@ -47,6 +47,9 @@ export function validateMadlib(row: Record<string, unknown>): string | null {
     if (blankIds.has(b.id)) return `${where}: blank id "${b.id}" is used twice.`;
     if (b.kind !== 'free' && b.kind !== 'roster') return `${where}: blank "${b.id}" has kind "${String(b.kind)}" (must be "free" or "roster").`;
     if (b.kind === 'free' && (typeof b.prompt !== 'string' || !b.prompt.trim())) return `${where}: free blank "${b.id}" needs a prompt.`;
+    if (typeof (b as { default?: unknown }).default !== 'string' || !String((b as { default?: unknown }).default).trim()) {
+      return `${where}: blank "${b.id}" needs a "default" word (the funny fallback used when nobody fills it in).`;
+    }
     blankIds.add(b.id);
   }
   for (let i = 0; i < lines.length; i++) {
@@ -142,7 +145,7 @@ export const BANKS: Bank[] = [
   {
     table: 'madlibs_templates',
     label: 'Mad Libs scripts',
-    help: 'Import scripts as JSON: [{ id, title, mode: "script", description, roles: [{name, color}], blanks: [{id, prompt, kind: "free"|"roster"}], lines: [{role, text, direction?}] }]. Use {{blank_id}} in line text. Scripts are checked on import.',
+    help: 'Import scripts as JSON: [{ id, title, mode: "script", description, roles: [{name, color}], blanks: [{id, prompt, kind: "free"|"roster", type, default}], lines: [{role, text, direction?}] }]. Use {{blank_id}} in line text. Every blank needs a default word. Scripts are checked on import. To swap in a new library, tick "Replace all existing rows".',
     fields: [
       { key: 'slug', label: 'Id', required: true, placeholder: 'smoky-mountains' },
       { key: 'title', label: 'Title', required: true },

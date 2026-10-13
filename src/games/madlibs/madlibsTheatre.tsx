@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNow } from '../../components/Countdown';
-import { PlayerChip } from '../../components/PlayerChip';
+import { Avatar, PlayerChip } from '../../components/PlayerChip';
 import { leastUsed, loadBank, markUsed, type BankRow } from '../../lib/bank';
 import { secondsLeft, serverNow } from '../../lib/clock';
 import { shuffle } from '../../lib/random';
@@ -8,6 +8,7 @@ import { isMuted } from '../../lib/sound';
 import { errorCode, supabase } from '../../lib/supabase';
 import type { GameCtx, GameModule, HostControlsProps, PhoneGameProps, TVGameProps } from '../types';
 import { MADLIBS_CONFIG as C } from './config';
+import { dealBlanks, renderPlain, renderSegs, type Blank, type Fill, type Line, type Role, type Seg, type Template } from './logic';
 
 /**
  * Mad Libs Theatre (no scoring, no voting). Everyone fills in blanks for a secret script, a small
@@ -23,33 +24,6 @@ import { MADLIBS_CONFIG as C } from './config';
  *    never shows script text until the optional finale.
  */
 
-interface Role {
-  name: string;
-  color: string;
-}
-interface Blank {
-  id: string;
-  prompt?: string;
-  kind: 'free' | 'roster';
-}
-interface Line {
-  role: string;
-  text: string;
-  direction?: string;
-}
-interface Template {
-  dbId?: string;
-  slug: string;
-  title: string;
-  description?: string;
-  roles: Role[];
-  blanks: Blank[];
-  lines: Line[];
-}
-interface Fill {
-  word: string;
-  by: string | null;
-}
 interface RunState {
   all?: Template[];
   queue?: string[];
@@ -65,9 +39,6 @@ interface CastEntry {
   color: string;
   playerId: string;
 }
-type Seg = { t: string } | { w: string; by: string | null };
-
-const PH = /\{\{\s*([^}\s]+)\s*\}\}/g;
 
 const BUILTIN: Template = {
   slug: 'builtin-sandwich',
@@ -79,12 +50,12 @@ const BUILTIN: Template = {
     { name: 'Narrator', color: '#6c5ce7' },
   ],
   blanks: [
-    { id: 'b1', prompt: 'A sandwich filling', kind: 'free' },
-    { id: 'b2', prompt: 'A dramatic adjective', kind: 'free' },
-    { id: 'b3', prompt: 'A friend\'s name', kind: 'roster' },
-    { id: 'b4', prompt: 'A weird place to hide a sandwich', kind: 'free' },
-    { id: 'b5', prompt: 'A silly noise', kind: 'free' },
-    { id: 'b6', prompt: 'A bad alibi', kind: 'free' },
+    { id: 'b1', prompt: 'A sandwich filling', kind: 'free', type: 'food', default: 'pickled pineapple' },
+    { id: 'b2', prompt: 'A dramatic adjective', kind: 'free', type: 'adj', default: 'moist' },
+    { id: 'b3', prompt: 'A friend\'s name', kind: 'roster', type: 'name', default: 'Gary' },
+    { id: 'b4', prompt: 'A weird place to hide a sandwich', kind: 'free', type: 'place', default: 'the organ' },
+    { id: 'b5', prompt: 'A silly noise', kind: 'free', type: 'sound', default: 'honk' },
+    { id: 'b6', prompt: 'A bad alibi', kind: 'free', type: 'phrase', default: 'I was at a goat yoga class' },
   ],
   lines: [
     { role: 'Narrator', text: 'It was a {{b2}} night in the kitchen, and the {{b1}} sandwich was gone.', direction: '(whispers into an imaginary microphone)' },
@@ -97,21 +68,9 @@ const BUILTIN: Template = {
 };
 
 const clean = (v: unknown) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, C.maxWordLength);
-const placeholder = () => C.placeholders[Math.floor(Math.random() * C.placeholders.length)];
-const fillText = (text: string, fills: Record<string, Fill>) => text.replace(PH, (_, id) => fills[id]?.word ?? '???');
-
-function toSegs(text: string, fills: Record<string, Fill>): Seg[] {
-  const out: Seg[] = [];
-  let last = 0;
-  for (const m of text.matchAll(PH)) {
-    if (m.index > last) out.push({ t: text.slice(last, m.index) });
-    const f = fills[m[1]];
-    out.push({ w: f?.word ?? '???', by: f?.by ?? null });
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push({ t: text.slice(last) });
-  return out;
-}
+const defaultWord = (b?: Blank) => b?.default?.trim() || C.placeholders[Math.floor(Math.random() * C.placeholders.length)];
+const fillText = renderPlain;
+const toSegs = renderSegs;
 
 const st = (ctx: GameCtx) => ctx.run.state as RunState;
 const castList = (t: Template, cast: Record<string, string>): CastEntry[] =>
@@ -139,46 +98,54 @@ async function startScript(ctx: GameCtx, slug: string) {
   const s = st(ctx);
   const t = (s.all ?? []).find((x) => x.slug === slug) ?? (s.all ?? [])[0];
   const useNames = settingOn(ctx, 'madlibsUseNames', true);
+  const maxWords = Math.max(1, Math.min(8, Number(ctx.room.settings.madlibsMaxWords ?? C.maxWordsPerPlayer)));
   const players = ctx.players;
+  const blank = (id: string) => t.blanks.find((b) => b.id === id);
 
-  // Roster blanks are filled with player names (distinct where possible); the rest are dealt out.
+  // Roster blanks come from the player list (the same id is always the same name); nobody is dealt them.
   const fills: Record<string, Fill> = {};
   const names = shuffle(players.map((p) => p.name));
   t.blanks
     .filter((b) => b.kind === 'roster' && useNames)
     .forEach((b, i) => {
-      fills[b.id] = { word: names[i % Math.max(1, names.length)] ?? 'Someone', by: null };
+      fills[b.id] = { word: names[i % Math.max(1, names.length)] ?? defaultWord(b), by: null, roster: true };
     });
-  const free = shuffle(t.blanks.filter((b) => b.kind === 'free' || !useNames));
-  const order = shuffle(players);
-  const assign: Record<string, string[]> = {};
-  free.forEach((b, i) => {
-    const p = order[i % order.length];
-    (assign[p.id] ??= []).push(b.id);
-  });
 
-  const promptOf = (id: string) => t.blanks.find((b) => b.id === id)?.prompt || (t.blanks.find((b) => b.id === id)?.kind === 'roster' ? "A friend's name" : 'A word');
-  await ctx.saveRun({ template: t, assign, fills, cast: null, played: [...new Set([...(s.played ?? []), t.slug])] });
+  // Deal the free blanks: everyone gets the same number of words (floor(F/N), capped), spread across
+  // the script. Blanks nobody is dealt are filled right now with their default word.
+  const deal = dealBlanks(t, players.map((p) => p.id), { maxWords, useNames });
+  for (const id of deal.undealt) fills[id] = { word: defaultWord(blank(id)), by: null, auto: true };
+
+  const promptOf = (id: string) => blank(id)?.prompt || (blank(id)?.kind === 'roster' ? "A friend's name" : 'A word');
+  await ctx.saveRun({ template: t, assign: deal.assign, fills, cast: null, played: [...new Set([...(s.played ?? []), t.slug])] });
   markUsed('madlibs_templates', [t.dbId]);
   await ctx.addSubs(
-    Object.entries(assign).map(([pid, ids]) => ({ kind: 'blanks', player_id: pid, payload: { title: t.title, items: ids.map((id) => ({ id, prompt: promptOf(id) })) } })),
+    Object.entries(deal.assign).map(([pid, ids]) => ({
+      kind: 'blanks',
+      player_id: pid,
+      payload: { title: t.title, items: ids.map((id) => ({ id, prompt: promptOf(id) })) },
+    })),
   );
-  await ctx.setStep('fill', { title: t.title }, { seconds: C.fillSeconds, submit: ['fill'] });
+  const seconds = C.fillBaseSeconds + C.fillSecondsPerWord * Math.max(1, deal.wordsEach);
+  const noWords = players.filter((p) => !deal.assign[p.id]).map((p) => p.id);
+  await ctx.setStep('fill', { title: t.title, wordsEach: deal.wordsEach, noWords, hideStrip: true }, { seconds, submit: ['fill'] });
 }
 
 async function collectFills(ctx: GameCtx) {
   const s = st(ctx);
+  const t = s.template!;
   const fills = { ...(s.fills ?? {}) };
   const subs = ctx.roundSubs('fill');
   for (const [pid, ids] of Object.entries(s.assign ?? {})) {
     const answers = (subs.find((x) => x.player_id === pid)?.payload.answers ?? {}) as Record<string, unknown>;
     for (const id of ids) {
       const word = clean(answers[id]);
-      fills[id] = { word: word || placeholder(), by: word ? pid : null };
+      // A word left blank when time ran out uses the blank's default.
+      fills[id] = word ? { word, by: pid } : { word: defaultWord(t.blanks.find((b) => b.id === id)), by: null, auto: true };
     }
   }
   await ctx.saveRun({ fills });
-  await ctx.setStep('cast', { title: s.template!.title, roles: s.template!.roles });
+  await ctx.setStep('cast', { title: t.title, roles: t.roles });
 }
 
 /** Pick who plays each role. Volunteers first, then players who haven't performed yet, then the rest. */
@@ -391,6 +358,14 @@ function MadlibsControls({ room, players, run, engine }: HostControlsProps) {
         <input type="checkbox" checked={flag('madlibsUseNames', true)} onChange={(e) => void engine.updateSettings({ madlibsUseNames: e.target.checked })} />
         Use player names
       </label>
+      <label className="field">
+        <span>Max words per player</span>
+        <select className="team-select" value={Number(room.settings.madlibsMaxWords ?? C.maxWordsPerPlayer)} onChange={(e) => void engine.updateSettings({ madlibsMaxWords: Number(e.target.value) })}>
+          {[1, 2, 3, 4, 5, 6].map((n) => (
+            <option key={n} value={n}>{n}{n === C.maxWordsPerPlayer ? ' (default)' : ''}</option>
+          ))}
+        </select>
+      </label>
       <label className="toggle">
         <input type="checkbox" checked={flag('madlibsFinale', true)} onChange={(e) => void engine.updateSettings({ madlibsFinale: e.target.checked })} />
         Finale: reveal the finished script
@@ -476,7 +451,6 @@ function CastBoard({ cast, players, activeRole }: { cast: CastEntry[]; players: 
 function MadlibsTV({ room, players, subs, engine }: TVGameProps) {
   const step = room.state.step;
   const title = String(room.state.title ?? '');
-  const done = (room.state.done ?? []).length;
   const cast = (room.state.cast as CastEntry[]) ?? [];
   const map = new Map(players.map((p) => [p.id, p]));
 
@@ -515,11 +489,19 @@ function MadlibsTV({ room, players, subs, engine }: TVGameProps) {
   }
 
   if (step === 'fill') {
+    const finished = new Set([...(room.state.done ?? []), ...((room.state.noWords as string[] | undefined) ?? [])]);
     return (
       <div className="center-stack ml-stage">
-        <h1 className="display">{title}</h1>
-        <p className="lead">Fill in your secret words on your phone. You won't see the script. Nobody will, until it's performed.</p>
-        <p className="lead dim">{done} of {players.length} done</p>
+        <h1 className="display">Everyone's writing the script…</h1>
+        <p className="lead">Fill in your secret words on your phone. Nobody sees the script until it's performed.</p>
+        <div className="ml-lights">
+          {players.map((p) => (
+            <span key={p.id} className={`ml-light${finished.has(p.id) ? ' ml-light-on' : ''}`}>
+              <Avatar player={p} size="lg" dim={!finished.has(p.id)} />
+            </span>
+          ))}
+        </div>
+        <p className="lead dim">{players.filter((p) => finished.has(p.id)).length} of {players.length} ready</p>
       </div>
     );
   }
@@ -626,7 +608,11 @@ function Finale({ title, lines, shown, done, map, credits }: { title: string; li
             <p>
               {l.segs.map((g, j) =>
                 'w' in g ? (
-                  <mark key={j} className="ml-word" style={g.by && map.get(g.by) ? { background: map.get(g.by)!.color, color: '#111' } : undefined}>{g.w}</mark>
+                  g.auto ? (
+                    <mark key={j} className="ml-word ml-word-auto" title="Nobody wrote this one">{g.w}<sup>auto</sup></mark>
+                  ) : (
+                    <mark key={j} className="ml-word" style={g.by && map.get(g.by) ? { background: map.get(g.by)!.color, color: '#111' } : undefined}>{g.w}</mark>
+                  )
                 ) : (
                   <span key={j}>{g.t}</span>
                 ),
@@ -657,7 +643,7 @@ function MadlibsPhone({ room, me, api }: PhoneGameProps) {
   const volunteered = api.mySubs.some((s) => s.kind === 'volunteer');
 
   if (step === 'pick') return <Centered title="Choosing a script…" body="The host is picking tonight's show." />;
-  if (step === 'fill') return <FillForm api={api} />;
+  if (step === 'fill') return <FillForm room={room} api={api} />;
   if (step === 'cast') return <Centered title="Casting…" body="Watch the TV. The host is choosing who performs." />;
 
   if (step === 'volunteer') {
@@ -709,7 +695,7 @@ function Centered({ title, body }: { title: string; body: string }) {
   );
 }
 
-function FillForm({ api }: Pick<PhoneGameProps, 'api'>) {
+function FillForm({ room, api }: Pick<PhoneGameProps, 'room' | 'api'>) {
   const row = api.mySubs.find((s) => s.kind === 'blanks');
   const items = (row?.payload.items as { id: string; prompt: string }[] | undefined) ?? [];
   const mine = api.mySubs.find((s) => s.kind === 'fill');
@@ -718,10 +704,7 @@ function FillForm({ api }: Pick<PhoneGameProps, 'api'>) {
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const value = (id: string) => answers[id] ?? saved[id] ?? '';
-
-  if (!row) {
-    return <Centered title="No words for you" body="Sit tight. You'll get the whole show soon." />;
-  }
+  const filled = items.filter((i) => value(i.id).trim()).length;
 
   const send = async () => {
     setBusy(true);
@@ -735,10 +718,31 @@ function FillForm({ api }: Pick<PhoneGameProps, 'api'>) {
     }
   };
 
+  // Don't lose half-filled words: send what you have a moment before time runs out
+  // (anything still blank then falls back to its default word).
+  const latest = useRef(send);
+  latest.current = send;
+  const sentAuto = useRef(false);
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const left = secondsLeft(room.timer_ends_at);
+      if (left != null && left <= 3 && left > 0 && !sentAuto.current && !mine && filled > 0) {
+        sentAuto.current = true;
+        void latest.current();
+      }
+    }, 500);
+    return () => window.clearInterval(id);
+  }, [room.timer_ends_at, mine, filled]);
+
+  if (!row) {
+    return <Centered title="No words for you" body="There are more players than blanks this time. Sit tight and enjoy the show." />;
+  }
+
   return (
     <div className="stack gap">
       <h2 className="center">✍️ Fill in the blanks</h2>
       <p className="center dim">Be funny. You won't see the script.</p>
+      <p className="center points">{filled} of {items.length} word{items.length === 1 ? '' : 's'}</p>
       {items.map((it) => (
         <label key={it.id} className="field">
           <span>{it.prompt}</span>
@@ -751,10 +755,11 @@ function FillForm({ api }: Pick<PhoneGameProps, 'api'>) {
           />
         </label>
       ))}
-      <button className="btn btn-primary btn-lg" disabled={busy || items.some((i) => !value(i.id).trim())} onClick={() => void send()}>
+      <button className="btn btn-primary btn-lg" disabled={busy || filled < items.length} onClick={() => void send()}>
         {mine ? 'Update' : 'Submit'}
       </button>
       {mine && <p className="center dim">Sent! You can change them until time runs out.</p>}
+      <p className="center dim small">Any word you leave blank uses a funny default.</p>
       {err && <p className="error center">{err}</p>}
     </div>
   );

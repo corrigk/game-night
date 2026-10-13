@@ -281,3 +281,20 @@
 @media (max-width: 900px) {
   .news-split { grid-template-columns: 1fr; }
 }
+
+.ml-lights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7em;
+  justify-content: center;
+  max-width: 50em;
+}
+.ml-light { border-radius: 50%; transition: transform 0.25s ease, box-shadow 0.25s ease; }
+.ml-light-on { transform: scale(1.12); box-shadow: 0 0 0 4px var(--success), 0 0 28px var(--success); }
+.ml-word-auto {
+  background: #9aa0a6;
+  color: #1b1b1b;
+  font-weight: 700;
+  opacity: 0.85;
+}
+.ml-word-auto sup { margin-left: 0.2em; font-size: 0.5em; letter-spacing: 0.06em; text-transform: uppercase; }

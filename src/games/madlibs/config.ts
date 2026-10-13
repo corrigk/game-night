@@ -3,7 +3,14 @@ export const MADLIBS_CONFIG = {
   /** Rounds = scripts played in a night (the host can queue more). */
   defaultRounds: 1,
   maxRounds: 6,
-  fillSeconds: 90,
+  /**
+   * Fill timer = base + secondsPerWord × words each (about 15s per word plus 20s). The host can add
+   * time with +15s.
+   */
+  fillBaseSeconds: 20,
+  fillSecondsPerWord: 15,
+  /** Cap on words per player so the fill phase stays short (host-adjustable in the drawer). */
+  maxWordsPerPlayer: 4,
   volunteerSeconds: 20,
   /** The "Curtain up!" 3-2-1. */
   curtainSeconds: 3,
@@ -14,7 +21,7 @@ export const MADLIBS_CONFIG = {
   finaleMinSeconds: 4,
   finaleMaxSeconds: 12,
   maxWordLength: 40,
-  /** Used when a player doesn't fill in a word in time. */
+  /** Last-resort fallback for a blank that has no `default` of its own. */
   placeholders: [
     'a suspiciously large goose',
     'banana',
